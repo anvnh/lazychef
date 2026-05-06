@@ -50,6 +50,13 @@
     echo "$GREET"
     # Ensure flutter knows where the Android SDK is
     flutter config --android-sdk $ANDROID_HOME > /dev/null 2>&1
+
+    # Regenerate local.properties to match current devenv paths
+    if [ -d "android" ]; then
+      echo "flutter.sdk=$(dirname $(dirname $(which flutter)))" > android/local.properties
+      echo "sdk.dir=$ANDROID_HOME" >> android/local.properties
+    fi
+
     echo "Flutter version: $(flutter --version | head -n 1)"
     echo "Node version: $(node --version)"
     echo "Turso CLI: $(turso --version)"
