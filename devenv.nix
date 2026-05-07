@@ -1,64 +1,57 @@
-{
-  pkgs,
-  lib,
-  config,
-  inputs,
-  ...
-}:
+{ pkgs, ... }:
 
+let
+  unfreePkgs = import pkgs.path {
+    system = pkgs.system;
+    config.allowUnfree = true;
+    config.android_sdk.accept_license = true;
+  };
+
+  androidComposition = unfreePkgs.androidenv.composeAndroidPackages {
+    cmdLineToolsVersion = "9.0";
+    toolsVersion = "26.1.1";
+    platformToolsVersion = "35.0.2";
+    buildToolsVersions = [
+      "34.0.0"
+      "28.0.3"
+      "35.0.0"
+    ];
+    platformVersions = [ "36" ];
+    includeEmulator = false;
+    emulatorVersion = "30.3.4";
+    includeSources = false;
+    includeSystemImages = false;
+    systemImageTypes = [ "google_apis_playstore" ];
+    abiVersions = [ "arm64-v8a" ];
+    cmakeVersions = [ "3.22.1" ];
+    includeNDK = true;
+    ndkVersions = [ "25.1.8937393" ];
+    useGoogleAPIs = false;
+    useGoogleTVAddOns = false;
+    includeExtras = [ ];
+  };
+
+  androidSdk = androidComposition.androidsdk;
+in
 {
-  # https://devenv.sh/packages/
-  packages = with pkgs; [
-    git
-    # flutter # Removed to avoid conflict with android.flutter
-    turso-cli
-    typescript-language-server
-    vscode-langservers-extracted
-    google-cloud-sdk
+  packages = [
+    pkgs.flutter
+    pkgs.jdk17
+    androidSdk
+    pkgs.gradle
   ];
 
   env = {
-    GREET = "Welcome to LazyChef development environment!";
-    ANDROID_HOME = "${config.android.sdk.path}/libexec/android-sdk";
-    ANDROID_SDK_ROOT = "${config.android.sdk.path}/libexec/android-sdk";
-    JAVA_HOME = pkgs.jdk17.home;
-  };
-
-  languages.javascript = {
-    enable = true;
-    pnpm.enable = true;
-  };
-
-  languages.typescript.enable = true;
-
-  android = {
-    enable = true;
-    flutter.enable = true;
-    sdk = {
-      packages = [
-        "platforms;android-34"
-        "build-tools;34.0.0"
-        "platform-tools"
-        "cmdline-tools;latest"
-        "extras;google;m2repository"
-        "extras;android;m2repository"
-      ];
-    };
+    ANDROID_SDK_ROOT = "${androidSdk}/libexec/android-sdk";
+    ANDROID_NDK_ROOT = "${androidSdk}/libexec/android-sdk/ndk-bundle";
+    ANDROID_HOME = "${androidSdk}/libexec/android-sdk";
+    JAVA_HOME = "${pkgs.jdk17}/lib/openjdk";
+    GRADLE_OPTS = "-Dorg.gradle.project.android.aapt2FromMavenOverride=${androidSdk}/libexec/android-sdk/build-tools/34.0.0/aapt2";
   };
 
   enterShell = ''
-    echo "$GREET"
-    # Ensure flutter knows where the Android SDK is
-    flutter config --android-sdk $ANDROID_HOME > /dev/null 2>&1
-
-    # Regenerate local.properties to match current devenv paths
-    if [ -d "android" ]; then
-      echo "flutter.sdk=$(dirname $(dirname $(which flutter)))" > android/local.properties
-      echo "sdk.dir=$ANDROID_HOME" >> android/local.properties
-    fi
-
-    echo "Flutter version: $(flutter --version | head -n 1)"
-    echo "Node version: $(node --version)"
-    echo "Turso CLI: $(turso --version)"
+    flutter config --android-sdk $ANDROID_SDK_ROOT
+    echo "Flutter: $(flutter --version | head -1)"
+    echo "Java: $(java -version 2>&1 | head -1)"
   '';
 }
