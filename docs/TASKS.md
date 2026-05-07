@@ -16,7 +16,7 @@ Update this file by changing `[ ]` to `[x]` as you complete tasks.
 - [ ] Test API with mock data.
 
 ## Frontend
-- [ ] Create Flutter project.
+- [x] Create Flutter project.
 - [ ] Add dependencies: `flutter_riverpod`, `go_router`, `dio`, `freezed`, `json_serializable`, `flutter_secure_storage`, `image_picker`.
 - [ ] Set up code generation for `freezed`.
 - [ ] Create `core/api/api_client.dart` with Dio and Auth Interceptors.
@@ -24,12 +24,12 @@ Update this file by changing `[ ]` to `[x]` as you complete tasks.
 - [ ] Create `features/auth/models/user.dart` (Freezed).
 - [ ] Create `features/auth/data/auth_repository.dart`.
 - [ ] Create `features/auth/providers/auth_provider.dart`.
-- [ ] Build `LoginScreen` and `RegisterScreen`.
+- [x] Build `LoginScreen` and `RegisterScreen`.
 - [ ] Create `features/scan/models/scan_result.dart` (Freezed).
 - [ ] Create `features/scan/data/scan_repository.dart` (handles multipart image uploads).
 - [ ] Create `features/scan/providers/scan_provider.dart`.
 - [ ] Build `HomeScreen` with Image Picker.
-- [ ] Build `ScanResultScreen` (UI for ingredients + recipes).
+- [x] Build `ScanResultScreen` (UI for ingredients + recipes).
 - [ ] Build `HistoryScreen` mapping to `/api/scans/history`.
 
 ## Polish
