@@ -3,12 +3,12 @@
 Update this file by changing `[ ]` to `[x]` as you complete tasks.
 
 ## Backend
-- [ ] Initialize Node + TS + Hono project (`backend/`).
-- [ ] Install Drizzle ORM, Turso client, Hono, JWT, bcrypt.
-- [ ] Create `db/schema.ts` with `users`, `scans`, `detected_ingredients`, `recipe_suggestions`.
-- [ ] Implement `auth/auth.service.ts` (hash, compare, JWT).
-- [ ] Create `routes/auth.routes.ts` (`/register`, `/login`).
-- [ ] Create JWT middleware (`middleware/auth.ts`).
+- [x] Initialize Node + TS + Hono project (`backend/`).
+- [x] Install Drizzle ORM, Turso client, Hono, JWT, bcryptjs.
+- [x] Create `db/schema.ts` with `users`, `scans`, `detected_ingredients`, `recipe_suggestions`.
+- [x] Implement `auth/auth.service.ts` (hash, compare, JWT).
+- [x] Create `routes/auth.routes.ts` (`/register`, `/login`).
+- [x] Create JWT middleware (`middleware/auth.ts`).
 - [ ] Set up Cloudinary integration (`cloudinary/cloudinary.service.ts`).
 - [ ] Set up Vision API integration (`vision/vision.service.ts`).
 - [ ] Set up Recipe generation logic (`recipes/recipe.service.ts`).

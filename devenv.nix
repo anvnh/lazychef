@@ -37,6 +37,7 @@ in
   packages = [
     pkgs.flutter
     pkgs.jdk17
+    pkgs.nodejs_22
     androidSdk
     pkgs.gradle
   ];
@@ -53,5 +54,6 @@ in
     flutter config --android-sdk $ANDROID_SDK_ROOT
     echo "Flutter: $(flutter --version | head -1)"
     echo "Java: $(java -version 2>&1 | head -1)"
+    echo "Node: $(node --version)"
   '';
 }
