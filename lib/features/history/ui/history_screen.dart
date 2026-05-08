@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lazychef/core/router/app_router.dart';
+import 'package:lazychef/core/widgets/app_bottom_bar.dart';
 import 'package:lazychef/core/widgets/lazychef_scaffold.dart';
 import 'package:lazychef/core/widgets/section_title.dart';
 import 'package:lazychef/features/scan/ui/demo_content.dart';
@@ -10,7 +11,7 @@ class HistoryScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LazyChefScaffold(
-      bottomNavigationBar: const _HistoryBottomBar(),
+      bottomNavigationBar: const AppBottomBar(currentIndex: 3),
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(24, 18, 24, 110),
         child: Column(
@@ -176,17 +177,16 @@ class _HistoryBottomBar extends StatelessWidget {
             }),
           ),
           child: NavigationBar(
-            selectedIndex: 1,
+            selectedIndex: 2,
             onDestinationSelected: (index) {
-              if (index == 1) {
+              if (index == 2) {
                 return;
               }
-
-              Navigator.pushNamedAndRemoveUntil(
-                context,
-                AppRouter.home,
-                (route) => false,
-              );
+              if (index == 0) {
+                Navigator.pushReplacementNamed(context, AppRouter.home);
+              } else if (index == 1) {
+                Navigator.pushNamed(context, AppRouter.scanResult);
+              }
             },
             backgroundColor: Colors.transparent,
             indicatorColor: const Color(0xFFE4A55A),
@@ -201,7 +201,15 @@ class _HistoryBottomBar extends StatelessWidget {
                 label: 'Home',
               ),
               NavigationDestination(
-                icon: Icon(Icons.history_rounded, color: Color(0xFFC9C9C9)),
+                icon: Icon(Icons.qr_code_scanner_outlined, color: Color(0xFFC9C9C9)),
+                selectedIcon: Icon(
+                  Icons.qr_code_scanner_rounded,
+                  color: Color(0xFFFFFFFF),
+                ),
+                label: 'Scan',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.history_outlined, color: Color(0xFFC9C9C9)),
                 selectedIcon: Icon(
                   Icons.history_rounded,
                   color: Color(0xFFFFFFFF),

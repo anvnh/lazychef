@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lazychef/core/router/app_router.dart';
+import 'package:lazychef/core/widgets/app_bottom_bar.dart';
 import 'package:lazychef/core/widgets/app_button.dart';
 import 'package:lazychef/core/widgets/lazychef_scaffold.dart';
 import 'package:lazychef/core/widgets/section_title.dart';
@@ -10,7 +11,7 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LazyChefScaffold(
-      bottomNavigationBar: const _BottomBar(currentIndex: 0),
+      bottomNavigationBar: const AppBottomBar(currentIndex: 0),
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(24, 18, 24, 110),
         child: Column(
@@ -43,9 +44,14 @@ class HomeScreen extends StatelessWidget {
                     color: const Color(0xFF23433C),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(
-                    Icons.ramen_dining_rounded,
-                    color: Colors.white,
+                  child: IconButton(
+                    onPressed: () {
+                      Navigator.pushNamed(context, AppRouter.recipe);
+                    },
+                    icon: const Icon(
+                      Icons.ramen_dining_rounded,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ],
@@ -298,67 +304,3 @@ class _KitchenNotes extends StatelessWidget {
   }
 }
 
-class _BottomBar extends StatelessWidget {
-  const _BottomBar({required this.currentIndex});
-
-  final int currentIndex;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: const Color(0xFF23433C),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: NavigationBarTheme(
-          data: NavigationBarThemeData(
-            labelTextStyle: WidgetStateProperty.resolveWith((states) {
-              final isSelected = states.contains(WidgetState.selected);
-
-              return TextStyle(
-                color: isSelected
-                    ? const Color(0xFFFFFFFF)
-                    : const Color(0xFFC9C9C9),
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              );
-            }),
-          ),
-          child: NavigationBar(
-            selectedIndex: currentIndex,
-            onDestinationSelected: (index) {
-              if (index == 0) {
-                return;
-              }
-
-              Navigator.pushNamed(context, AppRouter.history);
-            },
-            backgroundColor: Colors.transparent,
-            indicatorColor: const Color(0xFFE4A55A),
-            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.home_outlined, color: Color(0xFF999797)),
-                selectedIcon: Icon(
-                  Icons.home_rounded,
-                  color: Color(0xFFFFFFFF),
-                ),
-                label: 'Home',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.history_rounded, color: Color(0xFF999797)),
-                selectedIcon: Icon(
-                  Icons.history_rounded,
-                  color: Color(0xFFFFFFFF),
-                ),
-                label: 'History',
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
