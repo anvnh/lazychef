@@ -37,21 +37,15 @@ class HomeScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-                Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF23433C),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: IconButton(
-                    onPressed: () {
-                      Navigator.pushNamed(context, AppRouter.recipe);
-                    },
-                    icon: const Icon(
-                      Icons.ramen_dining_rounded,
-                      color: Colors.white,
-                    ),
+                GestureDetector(
+                  onTap: () {
+                    // Chuyển sang trang Profile
+                    Navigator.pushNamed(context, AppRouter.userProfile);
+                  },
+                  child: const CircleAvatar(
+                    radius: 24,
+                    backgroundColor: Color(0xFFF7E1D7),
+                    child: Icon(Icons.person, color: Colors.brown),
                   ),
                 ),
               ],
@@ -303,4 +297,3 @@ class _KitchenNotes extends StatelessWidget {
     );
   }
 }
-
