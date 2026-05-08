@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class AppTheme {
   static ThemeData light() {
     const canvas = Color(0xFFF4F6F1);
-    const primary = Color(0xFF23433C);
+    const primary = Color(0xFF789448);
     const secondary = Color(0xFFC85D3B);
     const tertiary = Color(0xFF2F6F9F);
     const surface = Color(0xFFFFFFFF);
