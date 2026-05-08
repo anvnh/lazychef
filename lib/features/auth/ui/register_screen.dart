@@ -1,14 +1,74 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lazychef/core/router/app_router.dart';
 import 'package:lazychef/core/widgets/app_button.dart';
 import 'package:lazychef/core/widgets/lazychef_scaffold.dart';
+import 'package:lazychef/features/auth/providers/auth_provider.dart';
 
-class RegisterScreen extends StatelessWidget {
+class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
+
+  @override
+  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
+}
+
+class _RegisterScreenState extends ConsumerState<RegisterScreen> {
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  void _onRegisterPressed() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    final confirmPassword = _confirmPasswordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill in all fields')),
+      );
+      return;
+    }
+
+    if (password != confirmPassword) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Passwords do not match')),
+      );
+      return;
+    }
+
+    await ref.read(authControllerProvider.notifier).register(email, password);
+
+    if (mounted) {
+      final authState = ref.read(authControllerProvider);
+      if (authState.hasError) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(authState.error.toString())),
+        );
+      } else {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRouter.home,
+          (route) => false,
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final authState = ref.watch(authControllerProvider);
+    final isLoading = authState.isLoading;
 
     return LazyChefScaffold(
       child: SingleChildScrollView(
@@ -17,7 +77,7 @@ class RegisterScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             IconButton.filledTonal(
-              onPressed: () => Navigator.pop(context),
+              onPressed: isLoading ? null : () => Navigator.pop(context),
               icon: const Icon(Icons.arrow_back_rounded),
             ),
             const SizedBox(height: 24),
@@ -38,48 +98,52 @@ class RegisterScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(22),
                 child: Column(
                   children: [
-                    const TextField(
-                      decoration: InputDecoration(
+                    TextField(
+                      controller: _nameController,
+                      enabled: !isLoading,
+                      decoration: const InputDecoration(
                         labelText: 'Name',
                         hintText: 'Your kitchen alias',
                       ),
                     ),
                     const SizedBox(height: 14),
-                    const TextField(
+                    TextField(
+                      controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
-                      decoration: InputDecoration(
+                      enabled: !isLoading,
+                      decoration: const InputDecoration(
                         labelText: 'Email',
                         hintText: 'chef@lazykitchen.app',
                       ),
                     ),
                     const SizedBox(height: 14),
-                    const TextField(
+                    TextField(
+                      controller: _passwordController,
                       obscureText: true,
-                      decoration: InputDecoration(
+                      enabled: !isLoading,
+                      decoration: const InputDecoration(
                         labelText: 'Password',
                         hintText: 'Choose a strong password',
                       ),
                     ),
                     const SizedBox(height: 14),
-                    const TextField(
+                    TextField(
+                      controller: _confirmPasswordController,
                       obscureText: true,
-                      decoration: InputDecoration(
+                      enabled: !isLoading,
+                      decoration: const InputDecoration(
                         labelText: 'Confirm password',
                         hintText: 'Repeat your password',
                       ),
                     ),
                     const SizedBox(height: 22),
-                    AppButton.primary(
-                      label: 'Create account',
-                      icon: Icons.check_rounded,
-                      onPressed: () {
-                        Navigator.pushNamedAndRemoveUntil(
-                          context,
-                          AppRouter.home,
-                          (route) => false,
-                        );
-                      },
-                    ),
+                    isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : AppButton.primary(
+                            label: 'Create account',
+                            icon: Icons.check_rounded,
+                            onPressed: _onRegisterPressed,
+                          ),
                   ],
                 ),
               ),

@@ -1,14 +1,58 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lazychef/core/router/app_router.dart';
 import 'package:lazychef/core/widgets/app_button.dart';
 import 'package:lazychef/core/widgets/lazychef_scaffold.dart';
+import 'package:lazychef/features/auth/providers/auth_provider.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
+
+  @override
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends ConsumerState<LoginScreen> {
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  void _onLoginPressed() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill in all fields')),
+      );
+      return;
+    }
+
+    await ref.read(authControllerProvider.notifier).login(email, password);
+
+    if (mounted) {
+      final authState = ref.read(authControllerProvider);
+      if (authState.hasError) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(authState.error.toString())),
+        );
+      } else {
+        Navigator.pushReplacementNamed(context, AppRouter.home);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final authState = ref.watch(authControllerProvider);
+    final isLoading = authState.isLoading;
 
     return LazyChefScaffold(
       child: SingleChildScrollView(
@@ -61,35 +105,41 @@ class LoginScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    const TextField(
+                    TextField(
+                      controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
-                      decoration: InputDecoration(
+                      enabled: !isLoading,
+                      decoration: const InputDecoration(
                         labelText: 'Email',
                         hintText: 'chef@lazykitchen.app',
                       ),
                     ),
                     const SizedBox(height: 14),
-                    const TextField(
+                    TextField(
+                      controller: _passwordController,
                       obscureText: true,
-                      decoration: InputDecoration(
+                      enabled: !isLoading,
+                      decoration: const InputDecoration(
                         labelText: 'Password',
                         hintText: 'Enter your password',
                       ),
                     ),
                     const SizedBox(height: 22),
-                    AppButton.primary(
-                      label: 'Sign in',
-                      icon: Icons.arrow_forward_rounded,
-                      onPressed: () {
-                        Navigator.pushReplacementNamed(context, AppRouter.home);
-                      },
-                    ),
+                    isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : AppButton.primary(
+                            label: 'Sign in',
+                            icon: Icons.arrow_forward_rounded,
+                            onPressed: _onLoginPressed,
+                          ),
                     const SizedBox(height: 12),
                     AppButton.secondary(
                       label: 'Create an account',
-                      onPressed: () {
-                        Navigator.pushNamed(context, AppRouter.register);
-                      },
+                      onPressed: isLoading
+                          ? () {} // Do nothing when loading
+                          : () {
+                              Navigator.pushNamed(context, AppRouter.register);
+                            },
                     ),
                   ],
                 ),
