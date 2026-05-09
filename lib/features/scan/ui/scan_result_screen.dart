@@ -50,7 +50,7 @@ class ScanResultScreen extends ConsumerWidget {
               eyebrow: 'Scan result',
               title: 'Your fridge looks promising',
               subtitle:
-                  'Detected ingredients are ready to review before saving this scan.',
+                  'Detected ingredients are saved to your account after upload.',
             ),
             const SizedBox(height: 18),
             if (selection != null) ...[
@@ -72,7 +72,7 @@ class ScanResultScreen extends ConsumerWidget {
               ),
             const SizedBox(height: 8),
             AppButton.primary(
-              label: 'Save and open history',
+              label: 'Open history',
               icon: Icons.bookmark_added_outlined,
               onPressed: () {
                 Navigator.pushNamed(context, AppRouter.history);
@@ -158,7 +158,7 @@ class _UploadedScanContent extends StatelessWidget {
           title: switch (result.analysis.status) {
             'failed' => 'Image uploaded. AI analysis needs attention.',
             'pending' => 'Image uploaded. AI analysis is pending.',
-            _ => 'Image uploaded and analysis completed.',
+            _ => 'Image uploaded, analyzed, and saved.',
           },
           icon: Icons.cloud_done_rounded,
         ),

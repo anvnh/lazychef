@@ -5,6 +5,7 @@ import {
   uploadImageToCloudinary,
 } from "../cloudinary/cloudinary.service.js";
 import { authMiddleware } from "../middleware/auth.js";
+import { saveScanResult } from "../scans/scan.service.js";
 import type { UploadableImage } from "../scans/uploadable-image.js";
 import {
   analyzeScanImage,
@@ -59,7 +60,13 @@ scansRoutes.post("/upload", async (context) => {
         ? analysisResult.value
         : toFailedAnalysis(analysisResult.reason);
 
-    return context.json({ image: uploadResult.value, analysis }, 201);
+    const scan = await saveScanResult({
+      userId: user.id,
+      image: uploadResult.value,
+      detectedIngredients: analysis.detectedIngredients,
+    });
+
+    return context.json({ scan, image: uploadResult.value, analysis }, 201);
   } catch (error) {
     return handleScanError(context, error);
   }

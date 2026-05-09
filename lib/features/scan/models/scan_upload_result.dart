@@ -1,13 +1,19 @@
 class ScanUploadResult {
-  const ScanUploadResult({required this.image, required this.analysis});
+  const ScanUploadResult({
+    required this.scan,
+    required this.image,
+    required this.analysis,
+  });
 
   factory ScanUploadResult.fromJson(Map<String, dynamic> json) {
     return ScanUploadResult(
+      scan: SavedScan.fromJson(_jsonMap(json['scan'])),
       image: CloudinaryImage.fromJson(_jsonMap(json['image'])),
       analysis: VisionAnalysis.fromJson(_jsonMap(json['analysis'])),
     );
   }
 
+  final SavedScan scan;
   final CloudinaryImage image;
   final VisionAnalysis analysis;
 }
@@ -18,6 +24,26 @@ Map<String, dynamic> _jsonMap(Object? value) {
   }
 
   return const {};
+}
+
+class SavedScan {
+  const SavedScan({
+    required this.id,
+    required this.userId,
+    required this.imageUrl,
+  });
+
+  factory SavedScan.fromJson(Map<String, dynamic> json) {
+    return SavedScan(
+      id: json['id'] as String? ?? '',
+      userId: json['userId'] as String? ?? '',
+      imageUrl: json['imageUrl'] as String? ?? '',
+    );
+  }
+
+  final String id;
+  final String userId;
+  final String imageUrl;
 }
 
 class CloudinaryImage {
