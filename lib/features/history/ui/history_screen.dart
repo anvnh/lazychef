@@ -201,7 +201,10 @@ class _HistoryBottomBar extends StatelessWidget {
                 label: 'Home',
               ),
               NavigationDestination(
-                icon: Icon(Icons.qr_code_scanner_outlined, color: Color(0xFFC9C9C9)),
+                icon: Icon(
+                  Icons.qr_code_scanner_outlined,
+                  color: Color(0xFFC9C9C9),
+                ),
                 selectedIcon: Icon(
                   Icons.qr_code_scanner_rounded,
                   color: Color(0xFFFFFFFF),

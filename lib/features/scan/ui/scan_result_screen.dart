@@ -156,8 +156,8 @@ class _UploadedScanContent extends StatelessWidget {
               ? '1 ingredient detected'
               : '$ingredientCount ingredients detected',
           title: result.analysis.status == 'pending'
-              ? 'Image uploaded. AI analysis placeholder is connected.'
-              : 'Image uploaded and analysis completed.',
+              ? 'Good. Not have AI yet'
+              : 'Ok dont analyze',
           icon: Icons.cloud_done_rounded,
         ),
         const SizedBox(height: 16),
