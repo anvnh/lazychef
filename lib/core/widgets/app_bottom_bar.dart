@@ -59,7 +59,7 @@ class AppBottomBar extends StatelessWidget {
                   context: context,
                   icon: Icons.kitchen_outlined,
                   activeIcon: Icons.kitchen_rounded,
-                  label: 'Ingredients',
+                  label: 'Ingred.',
                   index: 2,
                   isActive: currentIndex == 2,
                   activeColor: activeColor,
@@ -75,7 +75,6 @@ class AppBottomBar extends StatelessWidget {
                   activeColor: activeColor,
                   inactiveColor: inactiveColor,
                 ),
-               
               ],
             ),
           ),
@@ -127,23 +126,27 @@ class AppBottomBar extends StatelessWidget {
             Navigator.pushReplacementNamed(context, AppRouter.home);
           } else if (index == 1) {
             Navigator.pushReplacementNamed(context, AppRouter.recipe);
-          // } else if (index == 2) {
-          //   Navigator.pushReplacementNamed(context, AppRouter.ingredients);
+            // } else if (index == 2) {
+            //   Navigator.pushReplacementNamed(context, AppRouter.ingredients);
           } else if (index == 3) {
             Navigator.pushReplacementNamed(context, AppRouter.history);
-            }
+          }
         },
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(isActive ? activeIcon : icon, color: color, size: 28),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 13,
-                fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
+            const SizedBox(height: 2),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                maxLines: 1,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 12,
+                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
+                ),
               ),
             ),
           ],
