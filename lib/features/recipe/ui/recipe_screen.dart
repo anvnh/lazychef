@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lazychef/core/router/app_router.dart';
 import 'package:lazychef/core/widgets/app_bottom_bar.dart';
+import 'package:lazychef/core/widgets/app_button.dart';
+import 'package:lazychef/features/recipe/models/suggested_recipe.dart';
+import 'package:lazychef/features/recipe/providers/recipe_provider.dart';
 
-class RecipeScreen extends StatelessWidget {
+class RecipeScreen extends ConsumerWidget {
   const RecipeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final suggestedRecipes = ref.watch(suggestedRecipesProvider);
+
     return Scaffold(
       backgroundColor: Colors.white,
       bottomNavigationBar: const AppBottomBar(currentIndex: 1),
@@ -16,7 +22,6 @@ class RecipeScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildHeader(context),
               const SizedBox(height: 32),
               _buildGreeting(),
               const SizedBox(height: 24),
@@ -24,7 +29,7 @@ class RecipeScreen extends StatelessWidget {
               const SizedBox(height: 24),
               _buildCategories(),
               const SizedBox(height: 32),
-              _buildMatchYourFridge(context),
+              _buildMatchYourFridge(context, ref, suggestedRecipes),
               const SizedBox(height: 32),
               _buildTrendingRecipes(context),
               const SizedBox(height: 32),
@@ -33,38 +38,6 @@ class RecipeScreen extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: IconButton(
-            onPressed: () {
-              Navigator.pushNamed(context, AppRouter.home);
-            },
-            icon: const Icon(Icons.sort),
-          ),
-        ),
-        GestureDetector(
-          onTap: () {
-            // Chuyển sang trang Profile
-            Navigator.pushNamed(context, AppRouter.userProfile);
-          },
-          child: const CircleAvatar(
-            radius: 24,
-            backgroundColor: Color(0xFFF7E1D7),
-            child: Icon(Icons.person, color: Colors.brown),
-          ),
-        ),
-      ],
     );
   }
 
@@ -93,15 +66,13 @@ class RecipeScreen extends StatelessWidget {
     );
   }
 
-  // 1. Thêm BuildContext context vào đây
   Widget _buildSearchBar(BuildContext context) {
     return Row(
       children: [
         Expanded(
-          // 2. Bọc GestureDetector xung quanh Container
           child: GestureDetector(
             onTap: () {
-             Navigator.pushNamed(context, AppRouter.search); 
+              Navigator.pushNamed(context, AppRouter.search);
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -140,7 +111,7 @@ class RecipeScreen extends StatelessWidget {
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          _buildCategoryChip('Breakfast', Icons.breakfast_dining, true),
+          _buildCategoryChip('All', Icons.all_inbox, true),
           const SizedBox(width: 16),
           _buildCategoryChip('Fast Food', Icons.fastfood, false),
           const SizedBox(width: 16),
@@ -177,129 +148,73 @@ class RecipeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildMatchYourFridge(BuildContext context) {
+  Widget _buildMatchYourFridge(
+    BuildContext context,
+    WidgetRef ref,
+    AsyncValue<SuggestedRecipesResponse> suggestedRecipes,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Match Your Fridge',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Match Your Latest Scan',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+            ),
+            IconButton(
+              tooltip: 'Refresh',
+              onPressed: () {
+                ref.invalidate(suggestedRecipesProvider);
+              },
+              icon: const Icon(Icons.refresh_rounded),
+            ),
+          ],
         ),
         const SizedBox(height: 16),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              _buildMatchYourFridgeCard(
-                title: 'Royal Paddington\nThai Salad',
-                rating: '9.0',
-                imageUrl:
-                    'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=500&auto=format&fit=crop',
-                backgroundColor: const Color(0xFFFFDF9E), // Màu vàng cam pastel
-                onTap: () {
-                  Navigator.pushNamed(context, AppRouter.recipeDetail);
-                },
-              ),
-              const SizedBox(width: 16),
-              _buildMatchYourFridgeCard(
-                title: 'Noodles with\nChicken',
-                rating: '8.5',
-                imageUrl:
-                    'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?q=80&w=500&auto=format&fit=crop',
-                backgroundColor: const Color(0xFFEBE0E6), // Màu hồng tím pastel
-                onTap: () {
-                  Navigator.pushNamed(context, AppRouter.recipeDetail);
-                },
-              ),
-            ],
+        suggestedRecipes.when(
+          loading: () => const _SuggestedRecipesLoading(),
+          error: (error, _) => _SuggestedRecipesError(
+            error: error,
+            onRetry: () {
+              ref.invalidate(suggestedRecipesProvider);
+            },
           ),
+          data: (response) {
+            if (response.recipes.isEmpty && response.retryable) {
+              return _RetryableRecipeEmpty(
+                onRetry: () {
+                  ref.invalidate(suggestedRecipesProvider);
+                },
+              );
+            }
+
+            if (response.recipes.isEmpty) {
+              return const _NoSuggestedRecipes();
+            }
+
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: response.recipes.asMap().entries.map((entry) {
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 16),
+                    child: _SuggestedRecipeCard(
+                      recipe: entry.value,
+                      color: _suggestedRecipeColor(entry.key),
+                      onTap: () => _showSuggestedRecipe(context, entry.value),
+                    ),
+                  );
+                }).toList(),
+              ),
+            );
+          },
         ),
       ],
     );
   }
-
-  // WIDGET MỚI: GIAO DIỆN TỪNG THẺ MATCH YOUR FRIDGE
-  Widget _buildMatchYourFridgeCard({
-    required String title,
-    required String rating,
-    required String imageUrl,
-    required Color backgroundColor,
-    VoidCallback? onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 160,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: BorderRadius.circular(24),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Ảnh món ăn hình tròn (Giả lập tô/bát thức ăn)
-            Center(
-              child: Container(
-                width: 110,
-                height: 110,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4), // Đổ bóng nhẹ phía dưới bát
-                    ),
-                  ],
-                  image: DecorationImage(
-                    image: NetworkImage(imageUrl),
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            // Tên món ăn
-            Text(
-              title,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-                color: Colors.black87,
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 16),
-            // Pill Rating (Nút đánh giá màu trắng)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.star, color: Color(0xFFFFB039), size: 14),
-                  const SizedBox(width: 4),
-                  Text(
-                    rating,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-  // ==============================================================
 
   Widget _buildTrendingRecipes(BuildContext context) {
     return Column(
@@ -556,6 +471,319 @@ class RecipeScreen extends StatelessWidget {
       ],
     );
   }
+}
+
+class _SuggestedRecipeCard extends StatelessWidget {
+  const _SuggestedRecipeCard({
+    required this.recipe,
+    required this.color,
+    required this.onTap,
+  });
+
+  final SuggestedRecipe recipe;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 180,
+        height: 286,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.restaurant_menu_rounded),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  recipe.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: Colors.black87,
+                    height: 1.3,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  recipe.description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.grey.shade800,
+                    fontSize: 12,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _RecipePill(
+                  icon: Icons.schedule_rounded,
+                  label: recipe.cookingTime.isEmpty
+                      ? 'Timing pending'
+                      : recipe.cookingTime,
+                ),
+                _RecipePill(
+                  icon: Icons.local_fire_department_outlined,
+                  label: recipe.difficultyLabel,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipePill extends StatelessWidget {
+  const _RecipePill({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SuggestedRecipesLoading extends StatelessWidget {
+  const _SuggestedRecipesLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Generating recipes from your latest scan...'),
+          SizedBox(height: 14),
+          LinearProgressIndicator(),
+        ],
+      ),
+    );
+  }
+}
+
+class _SuggestedRecipesError extends StatelessWidget {
+  const _SuggestedRecipesError({required this.error, required this.onRetry});
+
+  final Object error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final needsSignIn = error.toString().contains('sign in');
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Could not load suggestions',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(error.toString()),
+          const SizedBox(height: 14),
+          AppButton.secondary(
+            label: needsSignIn ? 'Sign in' : 'Retry',
+            icon: needsSignIn ? Icons.login_rounded : Icons.refresh_rounded,
+            onPressed: needsSignIn
+                ? () {
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      AppRouter.login,
+                      (route) => false,
+                    );
+                  }
+                : onRetry,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RetryableRecipeEmpty extends StatelessWidget {
+  const _RetryableRecipeEmpty({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Something went wrong',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          const Text('Recipe generation failed for your latest scan.'),
+          const SizedBox(height: 14),
+          AppButton.secondary(
+            label: 'Retry',
+            icon: Icons.refresh_rounded,
+            onPressed: onRetry,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NoSuggestedRecipes extends StatelessWidget {
+  const _NoSuggestedRecipes();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.restaurant_menu_rounded),
+          SizedBox(width: 10),
+          Expanded(child: Text('Scan ingredients to get recipe suggestions.')),
+        ],
+      ),
+    );
+  }
+}
+
+void _showSuggestedRecipe(BuildContext context, SuggestedRecipe recipe) {
+  showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (context) {
+      return DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.72,
+        minChildSize: 0.45,
+        maxChildSize: 0.92,
+        builder: (context, scrollController) {
+          return ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
+            children: [
+              Text(
+                recipe.title,
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 8),
+              Text(recipe.description),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  Chip(label: Text(recipe.cookingTime)),
+                  Chip(label: Text(recipe.difficultyLabel)),
+                ],
+              ),
+              if (recipe.missingIngredients.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                Text(
+                  'Missing ingredients',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: recipe.missingIngredients
+                      .map((ingredient) => Chip(label: Text(ingredient)))
+                      .toList(),
+                ),
+              ],
+              const SizedBox(height: 20),
+              Text(
+                'Instructions',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              Text(recipe.instructions),
+            ],
+          );
+        },
+      );
+    },
+  );
+}
+
+Color _suggestedRecipeColor(int index) {
+  const colors = [
+    Color(0xFFFFDF9E),
+    Color(0xFFDCEAD8),
+    Color(0xFFF4D6C8),
+    Color(0xFFE7E1D4),
+    Color(0xFFD7E6EB),
+  ];
+
+  return colors[index % colors.length];
 }
 
 // class _RecipeBottomBar extends StatelessWidget {

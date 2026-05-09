@@ -81,6 +81,9 @@ class HistoryRecipeSuggestion {
     required this.title,
     required this.description,
     required this.instructions,
+    required this.cookingTime,
+    required this.difficulty,
+    required this.missingIngredients,
   });
 
   factory HistoryRecipeSuggestion.fromJson(Map<String, dynamic> json) {
@@ -89,6 +92,9 @@ class HistoryRecipeSuggestion {
       title: json['title'] as String? ?? '',
       description: json['description'] as String? ?? '',
       instructions: json['instructions'] as String? ?? '',
+      cookingTime: json['cookingTime'] as String? ?? '',
+      difficulty: json['difficulty'] as String? ?? 'easy',
+      missingIngredients: _stringList(json['missingIngredients']),
     );
   }
 
@@ -96,6 +102,9 @@ class HistoryRecipeSuggestion {
   final String title;
   final String description;
   final String instructions;
+  final String cookingTime;
+  final String difficulty;
+  final List<String> missingIngredients;
 }
 
 List<Map<String, dynamic>> _jsonList(Object? value) {
@@ -104,6 +113,14 @@ List<Map<String, dynamic>> _jsonList(Object? value) {
         .whereType<Map>()
         .map((item) => Map<String, dynamic>.from(item))
         .toList();
+  }
+
+  return const [];
+}
+
+List<String> _stringList(Object? value) {
+  if (value is List) {
+    return value.whereType<String>().toList();
   }
 
   return const [];

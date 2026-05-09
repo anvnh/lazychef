@@ -17,6 +17,9 @@ export type RecipeSuggestion = {
   title: string;
   description: string;
   instructions: string;
+  cookingTime: string;
+  difficulty: "easy" | "medium" | "hard";
+  missingIngredients: string[];
 };
 
 export type ScanHistoryItem = Required<SavedScan> & {
@@ -106,6 +109,12 @@ export async function listUserScanHistory(
       title: recipe.title,
       description: recipe.description,
       instructions: recipe.instructions,
+      cookingTime: recipe.cookingTime ?? "",
+      difficulty:
+        recipe.difficulty === "medium" || recipe.difficulty === "hard"
+          ? recipe.difficulty
+          : "easy",
+      missingIngredients: parseMissingIngredients(recipe.missingIngredients),
     });
     recipesByScanId.set(recipe.scanId, scanRecipes);
   }
@@ -118,4 +127,19 @@ export async function listUserScanHistory(
     detectedIngredients: ingredientsByScanId.get(scan.id) ?? [],
     recipeSuggestions: recipesByScanId.get(scan.id) ?? [],
   }));
+}
+
+function parseMissingIngredients(value: string | null): string[] {
+  if (!value) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === "string")
+      : [];
+  } catch {
+    return [];
+  }
 }

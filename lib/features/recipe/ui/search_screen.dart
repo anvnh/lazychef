@@ -16,7 +16,11 @@ class SearchScreen extends StatelessWidget {
               // Nút Back (Tùy chọn, thêm vào để UX tốt hơn)
               GestureDetector(
                 onTap: () => Navigator.pop(context),
-                child: const Icon(Icons.arrow_back_ios_new, size: 20, color: Colors.black87),
+                child: const Icon(
+                  Icons.arrow_back_ios_new,
+                  size: 20,
+                  color: Colors.black87,
+                ),
               ),
               const SizedBox(height: 20),
 
@@ -75,7 +79,7 @@ class SearchScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.08),
+            color: Colors.grey.withValues(alpha: 0.08),
             spreadRadius: 2,
             blurRadius: 15,
             offset: const Offset(0, 4), // Đổ bóng nhẹ xuống dưới
@@ -105,12 +109,14 @@ class SearchScreen extends StatelessWidget {
     // Dùng GridView.builder bọc trong shrinkWrap để nó tự tính toán chiều cao
     return GridView.builder(
       shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(), // Tắt cuộn của lưới để dùng cuộn ngoài cùng
+      physics:
+          const NeverScrollableScrollPhysics(), // Tắt cuộn của lưới để dùng cuộn ngoài cùng
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2, // 2 cột
         crossAxisSpacing: 16,
         mainAxisSpacing: 20,
-        childAspectRatio: 2.5, // Tỷ lệ chiều rộng / chiều cao của thẻ (chỉnh để thẻ dẹp lại)
+        childAspectRatio:
+            2.5, // Tỷ lệ chiều rộng / chiều cao của thẻ (chỉnh để thẻ dẹp lại)
       ),
       itemCount: 4,
       itemBuilder: (context, index) {
@@ -195,7 +201,9 @@ class SearchScreen extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           decoration: BoxDecoration(
-            color: const Color(0xFFF7F7F9), // Màu xám xanh rất nhạt giống thiết kế
+            color: const Color(
+              0xFFF7F7F9,
+            ), // Màu xám xanh rất nhạt giống thiết kế
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text(

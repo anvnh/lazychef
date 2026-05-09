@@ -11,17 +11,57 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   bool _showAllIngredients = false;
 
   final List<Map<String, dynamic>> _ingredients = [
-    {'name': 'Noodles', 'amount': '450 g', 'color': const Color(0xFFFDE8C4), 'icon': Icons.ramen_dining},
-    {'name': 'Butter', 'amount': '200 g', 'color': const Color(0xFFF3E5D8), 'icon': Icons.breakfast_dining},
-    {'name': 'Lemon', 'amount': '10 g', 'color': const Color(0xFFE5F3D8), 'icon': Icons.egg_alt},
-    {'name': 'Chicken', 'amount': '100 g', 'color': const Color(0xFFEFE6E0), 'icon': Icons.set_meal},
-    {'name': 'Soy Sauce', 'amount': '30 ml', 'color': const Color(0xFFEFE6E0), 'icon': Icons.water_drop},
-    {'name': 'Garlic', 'amount': '5 g', 'color': const Color(0xFFFDE8C4), 'icon': Icons.grass},
+    {
+      'name': 'Noodles',
+      'amount': '450 g',
+      'color': const Color(0xFFFDE8C4),
+      'icon': Icons.ramen_dining,
+    },
+    {
+      'name': 'Butter',
+      'amount': '200 g',
+      'color': const Color(0xFFF3E5D8),
+      'icon': Icons.breakfast_dining,
+    },
+    {
+      'name': 'Lemon',
+      'amount': '10 g',
+      'color': const Color(0xFFE5F3D8),
+      'icon': Icons.egg_alt,
+    },
+    {
+      'name': 'Chicken',
+      'amount': '100 g',
+      'color': const Color(0xFFEFE6E0),
+      'icon': Icons.set_meal,
+    },
+    {
+      'name': 'Soy Sauce',
+      'amount': '30 ml',
+      'color': const Color(0xFFEFE6E0),
+      'icon': Icons.water_drop,
+    },
+    {
+      'name': 'Garlic',
+      'amount': '5 g',
+      'color': const Color(0xFFFDE8C4),
+      'icon': Icons.grass,
+    },
   ];
 
   final List<Map<String, dynamic>> _missingIngredients = [
-    {'name': 'Chili', 'amount': '2 pcs', 'color': const Color(0xFFFFD4D4), 'icon': Icons.local_fire_department},
-    {'name': 'Oil', 'amount': '15 ml', 'color': const Color(0xFFF3E5D8), 'icon': Icons.water_drop},
+    {
+      'name': 'Chili',
+      'amount': '2 pcs',
+      'color': const Color(0xFFFFD4D4),
+      'icon': Icons.local_fire_department,
+    },
+    {
+      'name': 'Oil',
+      'amount': '15 ml',
+      'color': const Color(0xFFF3E5D8),
+      'icon': Icons.water_drop,
+    },
   ];
 
   @override
@@ -30,10 +70,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
       backgroundColor: const Color(0xFFF7F8FA),
       body: SingleChildScrollView(
         child: Column(
-          children: [
-            _buildTopSection(context),
-            _buildBottomSection(context),
-          ],
+          children: [_buildTopSection(context), _buildBottomSection(context)],
         ),
       ),
     );
@@ -83,7 +120,9 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                     ),
                   ],
                   image: const DecorationImage(
-                    image: NetworkImage('https://images.unsplash.com/photo-1569718212165-3a8278d5f624?q=80&w=500&auto=format&fit=crop'),
+                    image: NetworkImage(
+                      'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?q=80&w=500&auto=format&fit=crop',
+                    ),
                     fit: BoxFit.cover,
                   ),
                 ),
@@ -126,11 +165,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   Widget _buildStatItem(IconData icon, String text, {Color? iconColor}) {
     return Column(
       children: [
-        Icon(
-          icon,
-          color: iconColor ?? const Color(0xFF9E9E9E),
-          size: 28,
-        ),
+        Icon(icon, color: iconColor ?? const Color(0xFF9E9E9E), size: 28),
         const SizedBox(height: 8),
         Text(
           text,
@@ -197,7 +232,8 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                   }).toList(),
                 )
               : SizedBox(
-                  height: 164, // Đặt chiều cao cố định để ListView có thể cuộn ngang
+                  height:
+                      164, // Đặt chiều cao cố định để ListView có thể cuộn ngang
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
                     clipBehavior: Clip.none,
@@ -349,13 +385,13 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                   color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
-                )
-              ]
+                ),
+              ],
             ),
             child: Icon(placeholderIcon, color: Colors.black26, size: 48),
           ),
           const SizedBox(height: 12),
-          
+
           // Ingredient Info
           Text(
             name,
