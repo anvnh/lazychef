@@ -20,11 +20,13 @@ class RecipeScreen extends StatelessWidget {
               const SizedBox(height: 32),
               _buildGreeting(),
               const SizedBox(height: 24),
-              _buildSearchBar(),
+              _buildSearchBar(context),
               const SizedBox(height: 24),
               _buildCategories(),
               const SizedBox(height: 32),
-              _buildPopularRecipes(context),
+              _buildMatchYourFridge(context),
+              const SizedBox(height: 32),
+              _buildTrendingRecipes(context),
               const SizedBox(height: 32),
               _buildMostViewedRecipes(),
             ],
@@ -45,15 +47,22 @@ class RecipeScreen extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
           ),
           child: IconButton(
-                    onPressed: () {
-                      Navigator.pushNamed(context, AppRouter.home);
-                    },
-          icon: const Icon(Icons.sort),
-        ),),
-        const CircleAvatar(
-          radius: 24,
-          backgroundColor: Color(0xFFF7E1D7),
-          child: Icon(Icons.person, color: Colors.brown),
+            onPressed: () {
+              Navigator.pushNamed(context, AppRouter.home);
+            },
+            icon: const Icon(Icons.sort),
+          ),
+        ),
+        GestureDetector(
+          onTap: () {
+            // Chuyển sang trang Profile
+            Navigator.pushNamed(context, AppRouter.userProfile);
+          },
+          child: const CircleAvatar(
+            radius: 24,
+            backgroundColor: Color(0xFFF7E1D7),
+            child: Icon(Icons.person, color: Colors.brown),
+          ),
         ),
       ],
     );
@@ -64,7 +73,7 @@ class RecipeScreen extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Hi Rubina!',
+          'Hi YenNhi!',
           style: TextStyle(
             fontSize: 16,
             color: Colors.grey.shade600,
@@ -84,25 +93,32 @@ class RecipeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSearchBar() {
+  // 1. Thêm BuildContext context vào đây
+  Widget _buildSearchBar(BuildContext context) {
     return Row(
       children: [
         Expanded(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.search, color: Colors.grey.shade400),
-                const SizedBox(width: 12),
-                Text(
-                  'Find your today recipe',
-                  style: TextStyle(color: Colors.grey.shade400),
-                ),
-              ],
+          // 2. Bọc GestureDetector xung quanh Container
+          child: GestureDetector(
+            onTap: () {
+             Navigator.pushNamed(context, AppRouter.search); 
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.search, color: Colors.grey.shade400),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Find your today recipe',
+                    style: TextStyle(color: Colors.grey.shade400),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -161,16 +177,137 @@ class RecipeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildPopularRecipes(BuildContext context) {
+  Widget _buildMatchYourFridge(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Popular Recipes',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
+          'Match Your Fridge',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 16),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _buildMatchYourFridgeCard(
+                title: 'Royal Paddington\nThai Salad',
+                rating: '9.0',
+                imageUrl:
+                    'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=500&auto=format&fit=crop',
+                backgroundColor: const Color(0xFFFFDF9E), // Màu vàng cam pastel
+                onTap: () {
+                  Navigator.pushNamed(context, AppRouter.recipeDetail);
+                },
+              ),
+              const SizedBox(width: 16),
+              _buildMatchYourFridgeCard(
+                title: 'Noodles with\nChicken',
+                rating: '8.5',
+                imageUrl:
+                    'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?q=80&w=500&auto=format&fit=crop',
+                backgroundColor: const Color(0xFFEBE0E6), // Màu hồng tím pastel
+                onTap: () {
+                  Navigator.pushNamed(context, AppRouter.recipeDetail);
+                },
+              ),
+            ],
           ),
+        ),
+      ],
+    );
+  }
+
+  // WIDGET MỚI: GIAO DIỆN TỪNG THẺ MATCH YOUR FRIDGE
+  Widget _buildMatchYourFridgeCard({
+    required String title,
+    required String rating,
+    required String imageUrl,
+    required Color backgroundColor,
+    VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 160,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Ảnh món ăn hình tròn (Giả lập tô/bát thức ăn)
+            Center(
+              child: Container(
+                width: 110,
+                height: 110,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4), // Đổ bóng nhẹ phía dưới bát
+                    ),
+                  ],
+                  image: DecorationImage(
+                    image: NetworkImage(imageUrl),
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Tên món ăn
+            Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                color: Colors.black87,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Pill Rating (Nút đánh giá màu trắng)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.star, color: Color(0xFFFFB039), size: 14),
+                  const SizedBox(width: 4),
+                  Text(
+                    rating,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  // ==============================================================
+
+  Widget _buildTrendingRecipes(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Trending Recipes',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
         SingleChildScrollView(
@@ -201,7 +338,12 @@ class RecipeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildRecipeCard(String title, String rating, String imageUrl, {VoidCallback? onTap}) {
+  Widget _buildRecipeCard(
+    String title,
+    String rating,
+    String imageUrl, {
+    VoidCallback? onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -217,7 +359,9 @@ class RecipeScreen extends StatelessWidget {
               height: 140,
               decoration: BoxDecoration(
                 color: const Color(0xFFEFEFEF),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
                 image: DecorationImage(
                   image: NetworkImage(imageUrl),
                   fit: BoxFit.cover,
@@ -274,7 +418,10 @@ class RecipeScreen extends StatelessWidget {
                         ],
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFFFD166),
                           borderRadius: BorderRadius.circular(12),
@@ -310,10 +457,7 @@ class RecipeScreen extends StatelessWidget {
       children: [
         const Text(
           'Most Viewed Recipes',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
         Container(
@@ -332,7 +476,9 @@ class RecipeScreen extends StatelessWidget {
                   color: Colors.grey.shade200,
                   borderRadius: BorderRadius.circular(16),
                   image: const DecorationImage(
-                    image: NetworkImage('https://images.unsplash.com/photo-1556881286-fc6915169721?q=80&w=500&auto=format&fit=crop'),
+                    image: NetworkImage(
+                      'https://images.unsplash.com/photo-1556881286-fc6915169721?q=80&w=500&auto=format&fit=crop',
+                    ),
                     fit: BoxFit.cover,
                   ),
                 ),
@@ -342,17 +488,17 @@ class RecipeScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    const Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
                           'Morning Shake with\nMango Slice and Cream',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
                           ),
                         ),
-                        const Icon(Icons.bookmark_border, size: 20),
+                        Icon(Icons.bookmark_border, size: 20),
                       ],
                     ),
                     const SizedBox(height: 8),
@@ -377,7 +523,10 @@ class RecipeScreen extends StatelessWidget {
                           ],
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFD166),
                             borderRadius: BorderRadius.circular(12),

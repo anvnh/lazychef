@@ -126,8 +126,8 @@ class AppBottomBar extends StatelessWidget {
             Navigator.pushReplacementNamed(context, AppRouter.home);
           } else if (index == 1) {
             Navigator.pushReplacementNamed(context, AppRouter.recipe);
-            // } else if (index == 2) {
-            //   Navigator.pushReplacementNamed(context, AppRouter.ingredients);
+          } else if (index == 2) {
+            Navigator.pushReplacementNamed(context, AppRouter.ingredients);
           } else if (index == 3) {
             Navigator.pushReplacementNamed(context, AppRouter.history);
           }
