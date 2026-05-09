@@ -1,249 +1,596 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lazychef/core/router/app_router.dart';
+import 'package:lazychef/core/widgets/app_bottom_bar.dart';
+import 'package:lazychef/core/widgets/app_button.dart';
+import 'package:lazychef/core/widgets/lazychef_scaffold.dart';
+import 'package:lazychef/core/widgets/section_title.dart';
+import 'package:lazychef/features/history/models/history_scan.dart';
+import 'package:lazychef/features/history/providers/history_provider.dart';
+import 'package:lazychef/features/scan/utils/scan_image_picker.dart';
 
-class IngredientsScreen extends StatefulWidget {
-  const IngredientsScreen({Key? key}) : super(key: key);
+enum _IngredientFilter {
+  all('All'),
+  latest('Latest scan'),
+  highConfidence('High confidence');
 
-  @override
-  State<IngredientsScreen> createState() => _IngredientsScreenState();
+  const _IngredientFilter(this.label);
+
+  final String label;
 }
 
-class _IngredientsScreenState extends State<IngredientsScreen> {
-  // Dữ liệu giả lập
-  final List<String> categories = ['All', 'Vegetables', 'Meat', 'Dairy', 'Fruits'];
-  int selectedCategoryIndex = 0;
+class IngredientsScreen extends ConsumerStatefulWidget {
+  const IngredientsScreen({super.key});
 
-  final List<Map<String, dynamic>> ingredients = [
-    {'name': 'Tomato', 'qty': '3 pcs', 'icon': '🍅', 'cat': 'Vegetables'},
-    {'name': 'Chicken Breast', 'qty': '500g', 'icon': '🍗', 'cat': 'Meat'},
-    {'name': 'Broccoli', 'qty': '1 head', 'icon': '🥦', 'cat': 'Vegetables'},
-    {'name': 'Milk', 'qty': '1 L', 'icon': '🥛', 'cat': 'Dairy'},
-    {'name': 'Eggs', 'qty': '10 pcs', 'icon': '🥚', 'cat': 'Dairy'},
-    {'name': 'Carrot', 'qty': '4 pcs', 'icon': '🥕', 'cat': 'Vegetables'},
-  ];
+  @override
+  ConsumerState<IngredientsScreen> createState() => _IngredientsScreenState();
+}
+
+class _IngredientsScreenState extends ConsumerState<IngredientsScreen> {
+  final _searchController = TextEditingController();
+  _IngredientFilter _selectedFilter = _IngredientFilter.latest;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController
+      ..removeListener(_onSearchChanged)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Kế thừa màu từ Theme bạn đã setup
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final scanHistory = ref.watch(scanHistoryProvider);
 
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new, color: colorScheme.onSurface, size: 20),
-          onPressed: () {
-            Navigator.pushReplacementNamed(context, AppRouter.home);
-          },
-        ),
-        title: Text(
-          'My Fridge',
-          style: theme.textTheme.headlineMedium,
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.more_vert, color: colorScheme.onSurface),
-            onPressed: () {},
-          ),
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 1. Thanh tìm kiếm
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+    return LazyChefScaffold(
+      bottomNavigationBar: const AppBottomBar(currentIndex: 2),
+      child: RefreshIndicator(
+        onRefresh: () => ref.refresh(scanHistoryProvider.future),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(24, 18, 24, 110),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  IconButton.filledTonal(
+                    tooltip: 'Back',
+                    onPressed: () {
+                      Navigator.pushReplacementNamed(context, AppRouter.home);
+                    },
+                    icon: const Icon(Icons.arrow_back_rounded),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Ingredients',
+                      style: Theme.of(context).textTheme.displaySmall,
+                    ),
+                  ),
+                  IconButton.filledTonal(
+                    tooltip: 'Scan shelf',
+                    onPressed: () => showScanImagePickerOptions(context),
+                    icon: const Icon(Icons.qr_code_scanner_rounded),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton.filledTonal(
+                    tooltip: 'Refresh',
+                    onPressed: () {
+                      ref.invalidate(scanHistoryProvider);
+                    },
+                    icon: const Icon(Icons.refresh_rounded),
                   ),
                 ],
               ),
-              child: TextField(
-                decoration: InputDecoration(
-                  hintText: 'Search ingredients...',
-                  hintStyle: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey),
-                  prefixIcon: const Icon(Icons.search, color: Colors.grey),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                  // Bỏ viền mặc định của TextField để dùng viền Container
-                  enabledBorder: InputBorder.none, 
-                  focusedBorder: InputBorder.none,
-                ),
+              const SizedBox(height: 16),
+              const SectionTitle(
+                eyebrow: 'My fridge',
+                title: 'Ingredients from saved scans',
+                subtitle:
+                    'This inventory is built from scans saved under the current account.',
               ),
-            ),
-            const SizedBox(height: 20),
-
-            // 2. Danh mục (Categories)
-            SizedBox(
-              height: 40,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: categories.length,
-                itemBuilder: (context, index) {
-                  final isSelected = selectedCategoryIndex == index;
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        selectedCategoryIndex = index;
-                      });
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.only(right: 12),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: isSelected ? colorScheme.primary : Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: isSelected ? colorScheme.primary : Colors.grey.shade300,
-                        ),
-                      ),
-                      child: Center(
-                        child: Text(
-                          categories[index],
-                          style: TextStyle(
-                            color: isSelected ? Colors.white : colorScheme.onSurface,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
+              const SizedBox(height: 18),
+              _SearchField(controller: _searchController),
+              const SizedBox(height: 16),
+              _FilterChips(
+                selectedFilter: _selectedFilter,
+                onSelected: (filter) {
+                  setState(() {
+                    _selectedFilter = filter;
+                  });
                 },
               ),
-            ),
-            const SizedBox(height: 20),
+              const SizedBox(height: 20),
+              scanHistory.when(
+                loading: () => const _IngredientsLoading(),
+                error: (error, _) => _IngredientsError(
+                  error: error,
+                  onRetry: () {
+                    ref.invalidate(scanHistoryProvider);
+                  },
+                ),
+                data: (scans) {
+                  final ingredients = _filterIngredients(
+                    scans: scans,
+                    query: _searchController.text,
+                    filter: _selectedFilter,
+                  );
 
+                  if (scans.isEmpty) {
+                    return const _EmptyIngredients();
+                  }
+                  if (ingredients.isEmpty) {
+                    return const _NoMatchingIngredients();
+                  }
+
+                  return _IngredientsGrid(ingredients: ingredients);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SearchField extends StatelessWidget {
+  const _SearchField({required this.controller});
+
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      textInputAction: TextInputAction.search,
+      decoration: InputDecoration(
+        hintText: 'Search saved ingredients',
+        prefixIcon: const Icon(Icons.search_rounded),
+        suffixIcon: controller.text.isEmpty
+            ? null
+            : IconButton(
+                tooltip: 'Clear',
+                onPressed: controller.clear,
+                icon: const Icon(Icons.close_rounded),
+              ),
+      ),
+    );
+  }
+}
+
+class _FilterChips extends StatelessWidget {
+  const _FilterChips({required this.selectedFilter, required this.onSelected});
+
+  final _IngredientFilter selectedFilter;
+  final ValueChanged<_IngredientFilter> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: _IngredientFilter.values.map((filter) {
+        return ChoiceChip(
+          label: Text(filter.label),
+          selected: selectedFilter == filter,
+          onSelected: (_) => onSelected(filter),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _IngredientsGrid extends StatelessWidget {
+  const _IngredientsGrid({required this.ingredients});
+
+  final List<_IngredientInventoryItem> ingredients;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = constraints.maxWidth >= 720 ? 3 : 2;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Text(
-              '${ingredients.length} items from last scan',
-              style: theme.textTheme.titleMedium?.copyWith(color: Colors.grey.shade600),
+              '${ingredients.length} saved ingredients',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(color: const Color(0xFF6A5D51)),
             ),
             const SizedBox(height: 12),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossAxisCount,
+                childAspectRatio: 0.86,
+                crossAxisSpacing: 14,
+                mainAxisSpacing: 14,
+              ),
+              itemCount: ingredients.length,
+              itemBuilder: (context, index) {
+                return _IngredientCard(ingredient: ingredients[index]);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
 
-            // 3. Danh sách nguyên liệu dạng lưới
-            Expanded(
-              // Bắt buộc dùng Expanded để tránh lỗi RenderBox hasSize như bạn vừa gặp
-              child: GridView.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2, // 2 cột
-                  childAspectRatio: 0.85, // Tỷ lệ chiều cao/rộng của thẻ
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
+class _IngredientCard extends StatelessWidget {
+  const _IngredientCard({required this.ingredient});
+
+  final _IngredientInventoryItem ingredient;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEDE3D7),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.eco_rounded,
+                    color: Color(0xFF23433C),
+                  ),
                 ),
-                itemCount: ingredients.length,
-                itemBuilder: (context, index) {
-                  final item = ingredients[index];
-                  return _buildIngredientCard(
-                    context, 
-                    item['name'], 
-                    item['qty'], 
-                    item['icon']
-                  );
-                },
+                const Spacer(),
+                Text(
+                  '${ingredient.confidencePercent}%',
+                  style: textTheme.labelLarge?.copyWith(
+                    color: const Color(0xFFC85D3B),
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+            const Spacer(),
+            Text(
+              ingredient.displayName,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Seen in ${ingredient.scanCount} ${ingredient.scanCount == 1 ? 'scan' : 'scans'}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: textTheme.bodySmall?.copyWith(
+                color: const Color(0xFF6A5D51),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(
+                  Icons.history_rounded,
+                  size: 16,
+                  color: Color(0xFF6A5D51),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    _lastSeenLabel(ingredient.lastSeen),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: textTheme.bodySmall?.copyWith(
+                      color: const Color(0xFF6A5D51),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _IngredientsLoading extends StatelessWidget {
+  const _IngredientsLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Card(
+      child: Padding(
+        padding: EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Loading saved ingredients...'),
+            SizedBox(height: 14),
+            LinearProgressIndicator(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _IngredientsError extends StatelessWidget {
+  const _IngredientsError({required this.error, required this.onRetry});
+
+  final Object error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final needsSignIn = error.toString().contains('sign in');
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.error_outline_rounded,
+                  color: Color(0xFFC85D3B),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Could not load ingredients',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              error.toString(),
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            AppButton.secondary(
+              label: needsSignIn ? 'Sign in' : 'Try again',
+              icon: needsSignIn ? Icons.login_rounded : Icons.refresh_rounded,
+              onPressed: needsSignIn
+                  ? () {
+                      Navigator.pushNamedAndRemoveUntil(
+                        context,
+                        AppRouter.login,
+                        (route) => false,
+                      );
+                    }
+                  : onRetry,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyIngredients extends StatelessWidget {
+  const _EmptyIngredients();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.kitchen_outlined, color: Color(0xFFC85D3B)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'No ingredients saved yet',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Scan a shelf to build your account inventory.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            AppButton.primary(
+              label: 'Start scanning',
+              icon: Icons.qr_code_scanner_rounded,
+              onPressed: () => showScanImagePickerOptions(context),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NoMatchingIngredients extends StatelessWidget {
+  const _NoMatchingIngredients();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Row(
+          children: [
+            const Icon(Icons.search_off_rounded, color: Color(0xFFC85D3B)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'No saved ingredients match this filter.',
+                style: Theme.of(context).textTheme.bodyMedium,
               ),
             ),
           ],
         ),
       ),
-      
-      // 4. Nút Add thủ công (Floating Action Button)
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          // TODO: Hiện Popup hoặc chuyển trang Add Manual
-          _showAddManualBottomSheet(context);
-        },
-        backgroundColor: colorScheme.secondary, // Màu cam đất (Accent color)
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text(
-          'Add Item', 
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)
-        ),
-      ),
+    );
+  }
+}
+
+List<_IngredientInventoryItem> _filterIngredients({
+  required List<HistoryScan> scans,
+  required String query,
+  required _IngredientFilter filter,
+}) {
+  final normalizedQuery = query.trim().toLowerCase();
+  final sourceScans = switch (filter) {
+    _IngredientFilter.latest => scans.isEmpty ? <HistoryScan>[] : [scans.first],
+    _IngredientFilter.all || _IngredientFilter.highConfidence => scans,
+  };
+  final ingredients = _buildInventory(sourceScans).where((ingredient) {
+    final matchesQuery =
+        normalizedQuery.isEmpty || ingredient.name.contains(normalizedQuery);
+    final matchesFilter = switch (filter) {
+      _IngredientFilter.all => true,
+      _IngredientFilter.latest => true,
+      _IngredientFilter.highConfidence => ingredient.bestConfidence >= 0.75,
+    };
+
+    return matchesQuery && matchesFilter;
+  }).toList();
+
+  ingredients.sort((a, b) {
+    final confidenceCompare = b.bestConfidence.compareTo(a.bestConfidence);
+    if (confidenceCompare != 0) {
+      return confidenceCompare;
+    }
+
+    return a.displayName.compareTo(b.displayName);
+  });
+
+  return ingredients;
+}
+
+List<_IngredientInventoryItem> _buildInventory(List<HistoryScan> scans) {
+  final byName = <String, _MutableIngredientInventoryItem>{};
+
+  for (final scan in scans) {
+    for (final ingredient in scan.detectedIngredients) {
+      final name = ingredient.name.trim().toLowerCase();
+      if (name.isEmpty) {
+        continue;
+      }
+
+      final item = byName.putIfAbsent(
+        name,
+        () => _MutableIngredientInventoryItem(name: name),
+      );
+      item.scanIds.add(scan.id);
+      item.bestConfidence = item.bestConfidence > ingredient.confidence
+          ? item.bestConfidence
+          : ingredient.confidence;
+
+      final createdDate = scan.createdDate;
+      if (createdDate != null &&
+          (item.lastSeen == null || createdDate.isAfter(item.lastSeen!))) {
+        item.lastSeen = createdDate;
+      }
+    }
+  }
+
+  return byName.values.map(_IngredientInventoryItem.fromMutable).toList();
+}
+
+String _lastSeenLabel(DateTime? date) {
+  if (date == null) {
+    return 'Saved scan';
+  }
+
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final scanDay = DateTime(date.year, date.month, date.day);
+  final difference = today.difference(scanDay).inDays;
+
+  if (difference == 0) {
+    return 'Seen today';
+  }
+  if (difference == 1) {
+    return 'Seen yesterday';
+  }
+
+  return 'Seen ${date.year}-${_twoDigits(date.month)}-${_twoDigits(date.day)}';
+}
+
+String _displayName(String name) {
+  return name
+      .split(' ')
+      .where((part) => part.isNotEmpty)
+      .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
+      .join(' ');
+}
+
+String _twoDigits(int value) => value.toString().padLeft(2, '0');
+
+class _MutableIngredientInventoryItem {
+  _MutableIngredientInventoryItem({required this.name});
+
+  final String name;
+  final Set<String> scanIds = {};
+  double bestConfidence = 0;
+  DateTime? lastSeen;
+}
+
+class _IngredientInventoryItem {
+  const _IngredientInventoryItem({
+    required this.name,
+    required this.displayName,
+    required this.scanIds,
+    required this.bestConfidence,
+    required this.lastSeen,
+  });
+
+  factory _IngredientInventoryItem.fromMutable(
+    _MutableIngredientInventoryItem item,
+  ) {
+    return _IngredientInventoryItem(
+      name: item.name,
+      displayName: _displayName(item.name),
+      scanIds: Set.unmodifiable(item.scanIds),
+      bestConfidence: item.bestConfidence.clamp(0, 1),
+      lastSeen: item.lastSeen,
     );
   }
 
-  // Widget riêng lẻ cho từng Thẻ Nguyên liệu
-  Widget _buildIngredientCard(BuildContext context, String name, String qty, String emojiIcon) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // Thay bằng Image.network hoặc Image.asset nếu dùng hình thật
-          Text(emojiIcon, style: const TextStyle(fontSize: 40)), 
-          const SizedBox(height: 12),
-          Text(
-            name,
-            style: Theme.of(context).textTheme.titleMedium,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            qty,
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-          ),
-        ],
-      ),
-    );
-  }
+  final String name;
+  final String displayName;
+  final Set<String> scanIds;
+  final double bestConfidence;
+  final DateTime? lastSeen;
 
-  // Popup đơn giản khi bấm nút Add
-  void _showAddManualBottomSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(24),
-          height: 250,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Add Ingredient Manually', style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 16),
-              const TextField(
-                decoration: InputDecoration(
-                  hintText: 'e.g., Apple, Beef...',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                  ),
-                  child: const Text('Add to Fridge', style: TextStyle(color: Colors.white)),
-                ),
-              )
-            ],
-          ),
-        );
-      },
-    );
-  }
+  int get scanCount => scanIds.length;
+  int get confidencePercent => (bestConfidence * 100).round();
 }
