@@ -155,9 +155,11 @@ class _UploadedScanContent extends StatelessWidget {
           eyebrow: ingredientCount == 1
               ? '1 ingredient detected'
               : '$ingredientCount ingredients detected',
-          title: result.analysis.status == 'pending'
-              ? 'Good. Not have AI yet'
-              : 'Ok dont analyze',
+          title: switch (result.analysis.status) {
+            'failed' => 'Image uploaded. AI analysis needs attention.',
+            'pending' => 'Image uploaded. AI analysis is pending.',
+            _ => 'Image uploaded and analysis completed.',
+          },
           icon: Icons.cloud_done_rounded,
         ),
         const SizedBox(height: 16),
@@ -385,7 +387,7 @@ class _EmptyIngredientsCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '${analysis.model} placeholder',
+              '${analysis.model} analysis',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
@@ -424,10 +426,15 @@ class _SelectedImagePreview extends StatelessWidget {
               future: selection.image.readAsBytes(),
               builder: (context, snapshot) {
                 if (snapshot.hasData) {
-                  return Image.memory(
-                    snapshot.data!,
-                    fit: BoxFit.cover,
-                    width: double.infinity,
+                  return GestureDetector(
+                    onTap: () {
+                      _openFullImage(context, snapshot.data!);
+                    },
+                    child: Image.memory(
+                      snapshot.data!,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                    ),
                   );
                 }
 
@@ -466,6 +473,44 @@ class _SelectedImagePreview extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _openFullImage(BuildContext context, Uint8List imageBytes) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        fullscreenDialog: true,
+        builder: (context) => _FullImageViewer(imageBytes: imageBytes),
+      ),
+    );
+  }
+}
+
+class _FullImageViewer extends StatelessWidget {
+  const _FullImageViewer({required this.imageBytes});
+
+  final Uint8List imageBytes;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close_rounded),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: SafeArea(
+        child: InteractiveViewer(
+          minScale: 0.8,
+          maxScale: 5,
+          child: Center(child: Image.memory(imageBytes, fit: BoxFit.contain)),
+        ),
       ),
     );
   }

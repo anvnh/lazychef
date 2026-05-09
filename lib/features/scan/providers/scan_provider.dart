@@ -7,4 +7,4 @@ final scanUploadProvider = FutureProvider.autoDispose
     .family<ScanUploadResult, ScanImageSelection>((ref, selection) async {
       final repository = ref.watch(scanRepositoryProvider);
       return repository.uploadScanImage(selection.image);
-    });
+    }, retry: (_, _) => null);

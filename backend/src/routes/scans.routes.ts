@@ -6,7 +6,11 @@ import {
 } from "../cloudinary/cloudinary.service.js";
 import { authMiddleware } from "../middleware/auth.js";
 import type { UploadableImage } from "../scans/uploadable-image.js";
-import { analyzeScanImage } from "../vision/vision.service.js";
+import {
+  analyzeScanImage,
+  VisionAnalysisError,
+  type VisionAnalysisResult,
+} from "../vision/vision.service.js";
 
 const allowedImageTypes = new Set([
   "image/jpeg",
@@ -41,14 +45,23 @@ scansRoutes.post("/upload", async (context) => {
     const user = context.get("user");
     const uploadPromise = uploadImageToCloudinary(image, user.id);
     const analysisPromise = analyzeScanImage(image);
-    const [upload, analysis] = await Promise.all([
+    const [uploadResult, analysisResult] = await Promise.allSettled([
       uploadPromise,
       analysisPromise,
     ]);
 
-    return context.json({ image: upload, analysis }, 201);
+    if (uploadResult.status === "rejected") {
+      return handleScanError(context, uploadResult.reason);
+    }
+
+    const analysis =
+      analysisResult.status === "fulfilled"
+        ? analysisResult.value
+        : toFailedAnalysis(analysisResult.reason);
+
+    return context.json({ image: uploadResult.value, analysis }, 201);
   } catch (error) {
-    return handleCloudinaryError(context, error);
+    return handleScanError(context, error);
   }
 });
 
@@ -61,8 +74,28 @@ function isUploadableImage(value: unknown): value is UploadableImage {
   );
 }
 
-function handleCloudinaryError(context: Context, error: unknown) {
+function toFailedAnalysis(error: unknown): VisionAnalysisResult {
+  const message =
+    error instanceof Error ? error.message : "Gemini image analysis failed";
+
+  return {
+    provider: "gemini",
+    model: (process.env.GEMINI_MODEL || "gemini-2.5-flash").replace(
+      /^models\//,
+      "",
+    ),
+    status: "failed",
+    detectedIngredients: [],
+    message,
+  };
+}
+
+function handleScanError(context: Context, error: unknown) {
   if (error instanceof CloudinaryUploadError) {
+    return context.json({ error: error.message }, error.statusCode);
+  }
+
+  if (error instanceof VisionAnalysisError) {
     return context.json({ error: error.message }, error.statusCode);
   }
 
