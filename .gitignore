@@ -9,6 +9,11 @@ devenv.local.yaml
 # pre-commit
 .pre-commit-config.yaml
 
+.env
+.env.*
+!.env.example
+!backend/.env.example
+
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies

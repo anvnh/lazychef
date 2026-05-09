@@ -1,12 +1,17 @@
 import { serve } from "@hono/node-server";
 import "dotenv/config";
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { checkDatabaseConnection } from "./db/client.js";
 import { authRoutes } from "./routes/auth.routes.js";
+import { scansRoutes } from "./routes/scans.routes.js";
 
 const app = new Hono();
 
+app.use("*", cors());
+
 app.route("/api/auth", authRoutes);
+app.route("/api/scans", scansRoutes);
 
 app.get("/ping", (context) => {
   return context.json({

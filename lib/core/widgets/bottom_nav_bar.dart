@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lazychef/core/router/app_router.dart';
+import 'package:lazychef/features/scan/utils/scan_image_picker.dart';
 
 class BottomNavBar extends StatelessWidget {
   const BottomNavBar({super.key, required this.currentIndex});
@@ -38,7 +39,7 @@ class BottomNavBar extends StatelessWidget {
               if (index == 0) {
                 Navigator.pushReplacementNamed(context, AppRouter.home);
               } else if (index == 1) {
-                Navigator.pushNamed(context, AppRouter.scanResult);
+                showScanImagePickerOptions(context);
               } else if (index == 2) {
                 Navigator.pushReplacementNamed(context, AppRouter.history);
               }
@@ -56,7 +57,10 @@ class BottomNavBar extends StatelessWidget {
                 label: 'Home',
               ),
               NavigationDestination(
-                icon: Icon(Icons.qr_code_scanner_outlined, color: Color(0xFFC9C9C9)),
+                icon: Icon(
+                  Icons.qr_code_scanner_outlined,
+                  color: Color(0xFFC9C9C9),
+                ),
                 selectedIcon: Icon(
                   Icons.qr_code_scanner_rounded,
                   color: Color(0xFFFFFFFF),
