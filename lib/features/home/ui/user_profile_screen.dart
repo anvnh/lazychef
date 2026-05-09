@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lazychef/core/router/app_router.dart';
 import 'package:lazychef/features/auth/data/auth_repository.dart';
+import 'package:lazychef/features/auth/providers/auth_provider.dart';
 import 'package:lazychef/features/home/ui/edit_profile.dart';
 
 class UserProfileScreen extends ConsumerWidget {
@@ -17,7 +18,7 @@ class UserProfileScreen extends ConsumerWidget {
             child: SingleChildScrollView(
               child: Column(
                 children: [
-                  _buildHeaderProfile(context),
+                  _buildHeaderProfile(context, ref),
                   _buildStats(),
                   const SizedBox(height: 8),
                   const Padding(
@@ -28,9 +29,7 @@ class UserProfileScreen extends ConsumerWidget {
                       color: Color(0xFFF0F0F0),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  _buildMyPosts(),
-                  const SizedBox(height: 25),
+                  // _buildMyPosts(),
                   _buildMenuItems(),
                 ],
               ),
@@ -46,7 +45,14 @@ class UserProfileScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildHeaderProfile(BuildContext context) {
+  Widget _buildHeaderProfile(BuildContext context, WidgetRef ref) {
+    final emailAsync = ref.watch(currentUserEmailProvider);
+    final userName = emailAsync.when(
+      data: (email) => email != null ? email.split('@')[0] : 'User',
+      loading: () => 'Loading...',
+      error: (_, __) => 'User',
+    );
+
     return Stack(
       clipBehavior: Clip.none,
       alignment: Alignment.topCenter,
@@ -101,9 +107,9 @@ class UserProfileScreen extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const SizedBox(width: 28),
-              const Text(
-                'Yến Nhi',
-                style: TextStyle(
+              Text(
+                userName,
+                style: const TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
                   color: Colors.black87,
@@ -118,9 +124,9 @@ class UserProfileScreen extends ConsumerWidget {
                     context: context,
                     isScrollControlled: true,
                     backgroundColor: Colors.transparent,
-                    builder: (context) => const EditProfilePopup(
-                      currentName: 'Yến Nhi', // Chuyền data tĩnh tạm thời
-                      currentCoverColor: Color(0xFFFFD166),
+                    builder: (context) => EditProfilePopup(
+                      currentName: userName, // Chuyền data tĩnh tạm thời
+                      currentCoverColor: const Color(0xFFFFD166),
                     ),
                   );
 
@@ -197,82 +203,82 @@ class UserProfileScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildMyPosts() {
-    return Padding(
-      padding: const EdgeInsets.only(left: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'My post',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            height: 140,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                _buildPostItem(
-                  'Salad',
-                  'https://images.unsplash.com/photo-1482049016688-2d3e1b311543?q=80&w=300&auto=format&fit=crop',
-                ),
-                _buildPostItem(
-                  'pizza handmade',
-                  'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?q=80&w=300&auto=format&fit=crop',
-                ),
-                _buildPostItem(
-                  'I am good',
-                  'https://images.unsplash.com/photo-1484723091791-cdd51a0c0435?q=80&w=300&auto=format&fit=crop',
-                ),
-                _buildPostItem(
-                  'vegetables meal',
-                  'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=300&auto=format&fit=crop',
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // Widget _buildMyPosts() {
+  //   return Padding(
+  //     padding: const EdgeInsets.only(left: 24),
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         const Text(
+  //           'My post',
+  //           style: TextStyle(
+  //             fontSize: 18,
+  //             fontWeight: FontWeight.bold,
+  //             color: Colors.black87,
+  //           ),
+  //         ),
+  //         const SizedBox(height: 20),
+  //         SizedBox(
+  //           height: 140,
+  //           child: ListView(
+  //             scrollDirection: Axis.horizontal,
+  //             children: [
+  //               _buildPostItem(
+  //                 'Salad',
+  //                 'https://images.unsplash.com/photo-1482049016688-2d3e1b311543?q=80&w=300&auto=format&fit=crop',
+  //               ),
+  //               _buildPostItem(
+  //                 'pizza handmade',
+  //                 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?q=80&w=300&auto=format&fit=crop',
+  //               ),
+  //               _buildPostItem(
+  //                 'I am good',
+  //                 'https://images.unsplash.com/photo-1484723091791-cdd51a0c0435?q=80&w=300&auto=format&fit=crop',
+  //               ),
+  //               _buildPostItem(
+  //                 'vegetables meal',
+  //                 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=300&auto=format&fit=crop',
+  //               ),
+  //             ],
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
-  Widget _buildPostItem(String title, String imageUrl) {
-    return Container(
-      width: 100,
-      margin: const EdgeInsets.only(right: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            height: 100,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              image: DecorationImage(
-                image: NetworkImage(imageUrl),
-                fit: BoxFit.cover,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey.shade800,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // Widget _buildPostItem(String title, String imageUrl) {
+  //   return Container(
+  //     width: 100,
+  //     margin: const EdgeInsets.only(right: 16),
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         Container(
+  //           height: 100,
+  //           decoration: BoxDecoration(
+  //             borderRadius: BorderRadius.circular(12),
+  //             image: DecorationImage(
+  //               image: NetworkImage(imageUrl),
+  //               fit: BoxFit.cover,
+  //             ),
+  //           ),
+  //         ),
+  //         const SizedBox(height: 8),
+  //         Text(
+  //           title,
+  //           maxLines: 1,
+  //           overflow: TextOverflow.ellipsis,
+  //           style: TextStyle(
+  //             fontSize: 13,
+  //             fontWeight: FontWeight.w600,
+  //             color: Colors.grey.shade800,
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   Widget _buildMenuItems() {
     return Column(

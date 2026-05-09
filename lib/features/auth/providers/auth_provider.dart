@@ -3,9 +3,13 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lazychef/features/auth/data/auth_repository.dart';
 
-final authControllerProvider =
-    AsyncNotifierProvider<AuthController, void>(() {
+final authControllerProvider = AsyncNotifierProvider<AuthController, void>(() {
   return AuthController();
+});
+
+final currentUserEmailProvider = FutureProvider<String?>((ref) async {
+  final repository = ref.read(authRepositoryProvider);
+  return await repository.getUserEmail();
 });
 
 class AuthController extends AsyncNotifier<void> {
@@ -20,10 +24,12 @@ class AuthController extends AsyncNotifier<void> {
       String errorMessage = data['error'] ?? defaultMessage;
       if (data['fields'] is Map<String, dynamic>) {
         final fields = data['fields'] as Map<String, dynamic>;
-        final fieldMessages = fields.entries.map((entry) {
-          final values = entry.value as List<dynamic>;
-          return '${entry.key}: ${values.join(', ')}';
-        }).join('\n');
+        final fieldMessages = fields.entries
+            .map((entry) {
+              final values = entry.value as List<dynamic>;
+              return '${entry.key}: ${values.join(', ')}';
+            })
+            .join('\n');
         errorMessage = '$errorMessage\n$fieldMessages';
       }
       return errorMessage;
