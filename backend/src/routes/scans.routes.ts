@@ -5,7 +5,7 @@ import {
   uploadImageToCloudinary,
 } from "../cloudinary/cloudinary.service.js";
 import { authMiddleware } from "../middleware/auth.js";
-import { saveScanResult } from "../scans/scan.service.js";
+import { listUserScanHistory, saveScanResult } from "../scans/scan.service.js";
 import type { UploadableImage } from "../scans/uploadable-image.js";
 import {
   analyzeScanImage,
@@ -25,6 +25,17 @@ const maxImageSizeBytes = 8 * 1024 * 1024;
 export const scansRoutes = new Hono();
 
 scansRoutes.use("*", authMiddleware);
+
+scansRoutes.get("/history", async (context) => {
+  try {
+    const user = context.get("user");
+    const history = await listUserScanHistory(user.id);
+
+    return context.json({ history });
+  } catch {
+    return context.json({ error: "Could not load scan history" }, 500);
+  }
+});
 
 scansRoutes.post("/upload", async (context) => {
   const body = await context.req.parseBody().catch(() => null);
