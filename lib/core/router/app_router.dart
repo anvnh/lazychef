@@ -9,6 +9,7 @@ import 'package:lazychef/features/recipe/ui/recipe_screen.dart';
 import 'package:lazychef/features/recipe/ui/recipe_detail_screen.dart';
 import 'package:lazychef/features/ingredients/ui/ingredients_screen.dart';
 import 'package:lazychef/features/home/ui/user_profile_screen.dart';
+import 'package:lazychef/features/scan/models/scan_image_selection.dart';
 
 class AppRouter {
   static const String login = '/';
@@ -31,8 +32,14 @@ class AppRouter {
       case home:
         return _buildRoute(const HomeScreen(), settings);
       case scanResult:
-        return _buildRoute(const ScanResultScreen(), settings);
-        case history:
+        final arguments = settings.arguments;
+        return _buildRoute(
+          ScanResultScreen(
+            selection: arguments is ScanImageSelection ? arguments : null,
+          ),
+          settings,
+        );
+      case history:
         return _buildRoute(const HistoryScreen(), settings);
       case ingredients:
         return _buildRoute(const IngredientsScreen(), settings);

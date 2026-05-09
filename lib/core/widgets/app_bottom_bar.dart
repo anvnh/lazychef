@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lazychef/core/router/app_router.dart';
+import 'package:lazychef/features/scan/utils/scan_image_picker.dart';
 
 class AppBottomBar extends StatelessWidget {
   const AppBottomBar({super.key, required this.currentIndex});
@@ -25,7 +26,7 @@ class AppBottomBar extends StatelessWidget {
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, -2),
                 ),
@@ -81,11 +82,7 @@ class AppBottomBar extends StatelessWidget {
           Positioned(
             top: 0,
             child: GestureDetector(
-              onTap: () {
-                if (currentIndex != 1) {
-                  Navigator.pushNamed(context, AppRouter.scanResult);
-                }
-              },
+              onTap: () => showScanImagePickerOptions(context),
               child: Container(
                 width: 68,
                 height: 68,

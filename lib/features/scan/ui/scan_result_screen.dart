@@ -1,12 +1,18 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:lazychef/core/router/app_router.dart';
 import 'package:lazychef/core/widgets/app_button.dart';
 import 'package:lazychef/core/widgets/lazychef_scaffold.dart';
 import 'package:lazychef/core/widgets/section_title.dart';
+import 'package:lazychef/features/scan/models/scan_image_selection.dart';
 import 'package:lazychef/features/scan/ui/demo_content.dart';
 
 class ScanResultScreen extends StatelessWidget {
-  const ScanResultScreen({super.key});
+  const ScanResultScreen({super.key, this.selection});
+
+  final ScanImageSelection? selection;
 
   @override
   Widget build(BuildContext context) {
@@ -40,6 +46,10 @@ class ScanResultScreen extends StatelessWidget {
                   'Detected ingredients are ready to review before saving this scan.',
             ),
             const SizedBox(height: 18),
+            if (selection != null) ...[
+              _SelectedImagePreview(selection: selection!),
+              const SizedBox(height: 18),
+            ],
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
@@ -135,6 +145,75 @@ class ScanResultScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _SelectedImagePreview extends StatelessWidget {
+  const _SelectedImagePreview({required this.selection});
+
+  final ScanImageSelection selection;
+
+  @override
+  Widget build(BuildContext context) {
+    final sourceLabel = selection.source == ImageSource.camera
+        ? 'Camera photo'
+        : 'Gallery photo';
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AspectRatio(
+            aspectRatio: 16 / 10,
+            child: FutureBuilder<Uint8List>(
+              future: selection.image.readAsBytes(),
+              builder: (context, snapshot) {
+                if (snapshot.hasData) {
+                  return Image.memory(
+                    snapshot.data!,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                  );
+                }
+
+                if (snapshot.hasError) {
+                  return const ColoredBox(
+                    color: Color(0xFFEADBC9),
+                    child: Center(
+                      child: Icon(Icons.broken_image_outlined, size: 36),
+                    ),
+                  );
+                }
+
+                return const ColoredBox(
+                  color: Color(0xFFEADBC9),
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.image_search_rounded,
+                  color: Color(0xFFC85D3B),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '$sourceLabel selected for ingredient detection',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

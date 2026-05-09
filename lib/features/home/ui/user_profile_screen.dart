@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lazychef/core/router/app_router.dart';
+import 'package:lazychef/features/auth/data/auth_repository.dart';
 import 'package:lazychef/features/home/ui/edit_profile.dart';
 
-class UserProfileScreen extends StatelessWidget {
+class UserProfileScreen extends ConsumerWidget {
   const UserProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       backgroundColor: Colors.white,
       body: Column(
@@ -15,13 +17,16 @@ class UserProfileScreen extends StatelessWidget {
             child: SingleChildScrollView(
               child: Column(
                 children: [
-                  // Truyền context vào đây để nút Back hoạt động được
                   _buildHeaderProfile(context),
                   _buildStats(),
                   const SizedBox(height: 8),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 24),
-                    child: Divider(height: 32, thickness: 1, color: Color(0xFFF0F0F0)),
+                    child: Divider(
+                      height: 32,
+                      thickness: 1,
+                      color: Color(0xFFF0F0F0),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   _buildMyPosts(),
@@ -34,14 +39,13 @@ class UserProfileScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.only(top: 16, bottom: 40),
             color: Colors.white,
-            child: _buildLogoutButton(context),
+            child: _buildLogoutButton(context, ref),
           ),
         ],
       ),
     );
   }
 
-  // Thêm tham số BuildContext context
   Widget _buildHeaderProfile(BuildContext context) {
     return Stack(
       clipBehavior: Clip.none,
@@ -54,27 +58,34 @@ class UserProfileScreen extends StatelessWidget {
             color: Color(0xFFFFD166),
             image: DecorationImage(
               image: NetworkImage(
-                  'https://images.unsplash.com/photo-1490818387583-1b5ba4597b24?q=80&w=800&auto=format&fit=crop'),
+                'https://images.unsplash.com/photo-1490818387583-1b5ba4597b24?q=80&w=800&auto=format&fit=crop',
+              ),
               fit: BoxFit.cover,
             ),
           ),
         ),
-        
+
         // 2. Nút Back (Quay về Home) đặt nổi lên trên ảnh bìa
         Positioned(
-          top: MediaQuery.of(context).padding.top + 16, // Đẩy xuống khỏi thanh trạng thái (tai thỏ/pin)
+          top:
+              MediaQuery.of(context).padding.top +
+              16, // Đẩy xuống khỏi thanh trạng thái (tai thỏ/pin)
           left: 16,
           child: GestureDetector(
             onTap: () {
-              Navigator.pop(context); 
+              Navigator.pop(context);
             },
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.3), 
+                color: Colors.black.withOpacity(0.3),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
+              child: const Icon(
+                Icons.arrow_back_ios_new,
+                color: Colors.white,
+                size: 20,
+              ),
             ),
           ),
         ),
@@ -98,31 +109,25 @@ class UserProfileScreen extends StatelessWidget {
                   color: Colors.black87,
                 ),
               ),
-              
+
               const SizedBox(width: 8),
-              
-              // Nút Edit (Cây bút)
+
               GestureDetector(
                 onTap: () async {
-                  // Mở BottomSheet từ file riêng và hứng kết quả trả về
                   final result = await showModalBottomSheet(
                     context: context,
                     isScrollControlled: true,
                     backgroundColor: Colors.transparent,
                     builder: (context) => const EditProfilePopup(
                       currentName: 'Yến Nhi', // Chuyền data tĩnh tạm thời
-                      currentCoverColor: Color(0xFFFFD166), 
+                      currentCoverColor: Color(0xFFFFD166),
                     ),
                   );
 
-                  // Kiểm tra xem người dùng có bấm Lưu hay không
                   if (result != null) {
                     final newName = result['name'];
                     final newColor = result['coverColor'];
-                    
-                    // TODO: Lúc này có tên và màu mới rồi, bạn dùng setState ở Profile 
-                    // hoặc Bloc/Provider để update lại cái giao diện nền nhé!
-                    print('Tên mới: $newName - Màu mới: $newColor'); 
+                    print('Tên mới: $newName - Màu mới: $newColor');
                   }
                 },
                 child: const Icon(Icons.edit, size: 20, color: Colors.grey),
@@ -131,7 +136,6 @@ class UserProfileScreen extends StatelessWidget {
           ),
         ),
 
-        // 4. Avatar nổi lên giữa ranh giới
         const Positioned(
           top: 100,
           child: CircleAvatar(
@@ -140,7 +144,8 @@ class UserProfileScreen extends StatelessWidget {
             child: CircleAvatar(
               radius: 46,
               backgroundImage: NetworkImage(
-                  'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT8I_m_kf6iq8JeoiETm7vX9yKD6DfBIdXEJA&s'),
+                'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT8I_m_kf6iq8JeoiETm7vX9yKD6DfBIdXEJA&s',
+              ),
             ),
           ),
         ),
@@ -212,10 +217,22 @@ class UserProfileScreen extends StatelessWidget {
             child: ListView(
               scrollDirection: Axis.horizontal,
               children: [
-                _buildPostItem('Salad', 'https://images.unsplash.com/photo-1482049016688-2d3e1b311543?q=80&w=300&auto=format&fit=crop'),
-                _buildPostItem('pizza handmade', 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?q=80&w=300&auto=format&fit=crop'),
-                _buildPostItem('I am good', 'https://images.unsplash.com/photo-1484723091791-cdd51a0c0435?q=80&w=300&auto=format&fit=crop'),
-                _buildPostItem('vegetables meal', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=300&auto=format&fit=crop'),
+                _buildPostItem(
+                  'Salad',
+                  'https://images.unsplash.com/photo-1482049016688-2d3e1b311543?q=80&w=300&auto=format&fit=crop',
+                ),
+                _buildPostItem(
+                  'pizza handmade',
+                  'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?q=80&w=300&auto=format&fit=crop',
+                ),
+                _buildPostItem(
+                  'I am good',
+                  'https://images.unsplash.com/photo-1484723091791-cdd51a0c0435?q=80&w=300&auto=format&fit=crop',
+                ),
+                _buildPostItem(
+                  'vegetables meal',
+                  'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=300&auto=format&fit=crop',
+                ),
               ],
             ),
           ),
@@ -280,26 +297,33 @@ class UserProfileScreen extends StatelessWidget {
           color: Colors.grey.shade700,
         ),
       ),
-      trailing: Icon(Icons.chevron_right, color: Colors.grey.shade400, size: 20),
+      trailing: Icon(
+        Icons.chevron_right,
+        color: Colors.grey.shade400,
+        size: 20,
+      ),
       onTap: () {
         // TODO: Chuyển trang khi bấm vào mục menu
       },
     );
   }
 
-  Widget _buildLogoutButton(BuildContext context) {
+  Widget _buildLogoutButton(BuildContext context, WidgetRef ref) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: SizedBox(
         width: double.infinity,
         height: 50,
         child: OutlinedButton.icon(
-          onPressed: () {
-            Navigator.pushNamedAndRemoveUntil(
-              context,
-              AppRouter.login,
-              (Route<dynamic> route) => false,
-            );
+          onPressed: () async {
+            await ref.read(authRepositoryProvider).logout();
+            if (context.mounted) {
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                AppRouter.login,
+                (Route<dynamic> route) => false,
+              );
+            }
           },
           icon: const Icon(Icons.logout, color: Colors.redAccent),
           label: const Text(

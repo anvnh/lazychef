@@ -28,7 +28,7 @@ Update this file by changing `[ ]` to `[x]` as you complete tasks.
 - [ ] Create `features/scan/models/scan_result.dart` (Freezed).
 - [ ] Create `features/scan/data/scan_repository.dart` (handles multipart image uploads).
 - [ ] Create `features/scan/providers/scan_provider.dart`.
-- [ ] Build `HomeScreen` with Image Picker.
+- [x] Build `HomeScreen` with Image Picker.
 - [x] Build `ScanResultScreen` (UI for ingredients + recipes).
 - [ ] Build `HistoryScreen` mapping to `/api/scans/history`.
 

@@ -4,6 +4,8 @@ import 'package:lazychef/core/widgets/app_bottom_bar.dart';
 import 'package:lazychef/core/widgets/app_button.dart';
 import 'package:lazychef/core/widgets/lazychef_scaffold.dart';
 import 'package:lazychef/core/widgets/section_title.dart';
+import 'package:lazychef/features/scan/utils/scan_image_picker.dart';
+import 'package:image_picker/image_picker.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -39,7 +41,6 @@ class HomeScreen extends StatelessWidget {
                 ),
                 GestureDetector(
                   onTap: () {
-                    // Chuyển sang trang Profile
                     Navigator.pushNamed(context, AppRouter.userProfile);
                   },
                   child: const CircleAvatar(
@@ -91,7 +92,7 @@ class HomeScreen extends StatelessWidget {
                     label: 'Scan with camera',
                     icon: Icons.photo_camera_outlined,
                     onPressed: () {
-                      Navigator.pushNamed(context, AppRouter.scanResult);
+                      pickScanImage(context, ImageSource.camera);
                     },
                   ),
                   const SizedBox(height: 12),
@@ -99,7 +100,7 @@ class HomeScreen extends StatelessWidget {
                     label: 'Choose photo',
                     icon: Icons.collections_outlined,
                     onPressed: () {
-                      Navigator.pushNamed(context, AppRouter.scanResult);
+                      pickScanImage(context, ImageSource.gallery);
                     },
                   ),
                 ],

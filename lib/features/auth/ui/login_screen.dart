@@ -13,8 +13,8 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
+  final _emailController = TextEditingController(text: 'admin@gmail.com');
+  final _passwordController = TextEditingController(text: '12345678');
 
   @override
   void dispose() {
@@ -39,9 +39,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (mounted) {
       final authState = ref.read(authControllerProvider);
       if (authState.hasError) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(authState.error.toString())),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(authState.error.toString())));
       } else {
         Navigator.pushReplacementNamed(context, AppRouter.home);
       }
