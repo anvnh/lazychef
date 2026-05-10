@@ -83,13 +83,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             const SizedBox(height: 24),
             Text(
               'Set up your kitchen shortcut.',
-              style: textTheme.displaySmall,
+              style: textTheme.displaySmall?.copyWith(
+                fontSize: 20,
+              ),
             ),
             const SizedBox(height: 12),
             Text(
               'Create an account to save scans, revisit recipes, and keep your weekly food history in one place.',
               style: textTheme.bodyLarge?.copyWith(
                 color: const Color(0xFF53615A),
+                fontSize: 14,
               ),
             ),
             const SizedBox(height: 24),
@@ -141,7 +144,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         ? const Center(child: CircularProgressIndicator())
                         : AppButton.primary(
                             label: 'Create account',
-                            icon: Icons.check_rounded,
+                            // icon: Icons.check_rounded,
                             onPressed: _onRegisterPressed,
                           ),
                   ],

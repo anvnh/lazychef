@@ -80,13 +80,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             const SizedBox(height: 18),
             Text(
               'Your fridge, organized for dinner.',
-              style: textTheme.displayLarge,
+              style: textTheme.displayLarge?.copyWith(fontSize: 20),
             ),
             const SizedBox(height: 14),
             Text(
               'Sign in to scan ingredients, review recipes, and keep previous fridge checks close at hand.',
               style: textTheme.bodyLarge?.copyWith(
                 color: const Color(0xFF53615A),
+                fontSize: 13,
               ),
             ),
             const SizedBox(height: 28),
@@ -94,16 +95,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(22),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment
+                      .start, // Giữ nguyên để các widget khác căn trái
                   children: [
-                    Text('Welcome back', style: textTheme.titleLarge),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Sign in to keep your pantry history and recipe suggestions in sync.',
-                      style: textTheme.bodyMedium?.copyWith(
+                    Center(
+                      // Bọc Text trong Center
+                      child: Text('Welcome back', style: textTheme.titleLarge?.copyWith(
                         color: const Color(0xFF53615A),
-                      ),
+                        fontWeight: FontWeight.w600,
+                      )),
                     ),
+                    const SizedBox(height: 8),
                     const SizedBox(height: 20),
                     TextField(
                       controller: _emailController,
@@ -129,9 +131,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ? const Center(child: CircularProgressIndicator())
                         : AppButton.primary(
                             label: 'Sign in',
-                            icon: Icons.arrow_forward_rounded,
+                            
                             backgroundColor: const Color(0xFFFFD166),
-                            foregroundColor: const Color(0xFF2C3236),
+                            foregroundColor: const Color.fromARGB(255, 50, 54, 57),
                             onPressed: _onLoginPressed,
                           ),
                     const SizedBox(height: 12),

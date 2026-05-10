@@ -24,8 +24,8 @@ class RecipeScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 32),
-              _buildGreeting(),
+              const SizedBox(height: 20),
+              _buildGreeting(context),
               const SizedBox(height: 24),
               _buildSearchBar(context),
               const SizedBox(height: 24),
@@ -43,17 +43,35 @@ class RecipeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildGreeting() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildGreeting(BuildContext context) {
+    return Row(
+      // Đổi Column thành Row
+      crossAxisAlignment:
+          CrossAxisAlignment.center, // Căn giữa 2 widget theo chiều dọc
       children: [
-        const SizedBox(height: 8),
-        const Text(
-          'Make your own food,\nstay at home',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            height: 1.2,
+        // 1. Phần Text nằm bên trái
+        const Expanded(
+           // Khoảng cách an toàn giữa Text và Avatar
+          child: Text(
+            'Make your own food,\nstay at home',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              height: 1.2,
+            ),
+          ),
+        ),
+
+        const SizedBox(width: 16), // Khoảng cách an toàn giữa Text và Avatar
+        // 2. Phần Avatar nằm bên phải (Không cần dùng Align nữa)
+        GestureDetector(
+          onTap: () {
+            Navigator.pushNamed(context, AppRouter.userProfile);
+          },
+          child: const CircleAvatar(
+            radius: 24,
+            backgroundColor: Color(0xFFF7E1D7),
+            child: Icon(Icons.person, color: Colors.brown),
           ),
         ),
       ],
@@ -157,7 +175,7 @@ class RecipeScreen extends ConsumerWidget {
             const Expanded(
               child: Text(
                 'Match Your Latest Scan',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
               ),
             ),
             IconButton(
@@ -234,7 +252,7 @@ class RecipeScreen extends ConsumerWidget {
       children: [
         const Text(
           'Trending Recipes',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 16),
         SingleChildScrollView(
@@ -253,7 +271,7 @@ class RecipeScreen extends ConsumerWidget {
               _buildRecipeCard(
                 'Oats with Strawberry\nand milk',
                 '4.8',
-                'https://images.unsplash.com/photo-1517673132405-a56a62b18caf?q=80&w=500&auto=format&fit=crop',
+                'https://thesaltypot.com/wp-content/uploads/2017/08/Strawberry-Steel-Cut-Oats17-678x1024.jpg',
                 onTap: () {
                   Navigator.pushNamed(context, AppRouter.recipeDetail);
                 },
@@ -319,8 +337,8 @@ class RecipeScreen extends ConsumerWidget {
                   Text(
                     title,
                     style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -421,7 +439,7 @@ class RecipeScreen extends ConsumerWidget {
                         Text(
                           'Morning Shake with\nMango Slice and Cream',
                           style: TextStyle(
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w600,
                             fontSize: 14,
                           ),
                         ),
@@ -522,16 +540,16 @@ class _SuggestedRecipeCard extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const SizedBox(height: 20),
-                    _RecipeImageCircle(imageUrl: recipe.imageUrl, size: 100),
+                    const SizedBox(height: 10),
+                    _RecipeImageCircle(imageUrl: recipe.imageUrl, size: 110),
                     const SizedBox(height: 16),
                     Text(
                       recipe.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
                         color: Colors.black87,
                         height: 1.3,
                       ),

@@ -33,8 +33,12 @@ class HomeScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Tonight looks easy.',
-                        style: Theme.of(context).textTheme.displaySmall,
+                        'Let see what\'s in your fridge today!',
+                        style: TextStyle(
+                          color: Color.fromARGB(255, 8, 8, 8),
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 0,
+                        ),
                       ),
                     ],
                   ),
@@ -59,7 +63,7 @@ class HomeScreen extends StatelessWidget {
                 gradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [Color(0xFF23433C), Color(0xFF41635B)],
+                  colors: [Color.fromARGB(255, 82, 114, 25), Color.fromARGB(255, 82, 114, 25)],
                 ),
               ),
               child: Column(
@@ -76,15 +80,19 @@ class HomeScreen extends StatelessWidget {
                   const SizedBox(height: 10),
                   Text(
                     'Point the camera at the shelf and let the app do the ingredient sorting.',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.headlineMedium?.copyWith(color: Colors.white),
+                    style: TextStyle(
+                          color: Color.fromARGB(255, 255, 255, 255),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 20,
+                          letterSpacing: 0,
+                        ),
                   ),
                   const SizedBox(height: 12),
                   Text(
                     'You can also upload a saved photo and preview how the results screen will look.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: const Color(0xFFE5ECE9),
+                      fontSize: 12,
                     ),
                   ),
                   const SizedBox(height: 22),
