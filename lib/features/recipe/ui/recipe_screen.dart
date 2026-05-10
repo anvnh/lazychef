@@ -985,15 +985,21 @@ void _showSuggestedRecipe(
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Center(
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        alignment: WrapAlignment.center,
-                        children: recipe.missingIngredients
-                            .map((ingredient) => Chip(label: Text(ingredient)))
-                            .toList(),
-                      ),
+                    Wrap(
+                      spacing: 16,
+                      runSpacing: 24,
+                      children: recipe.missingIngredients.asMap().entries.map((
+                        entry,
+                      ) {
+                        final ingredient = entry.value;
+
+                        return _buildIngredientItem(
+                          _formatIngredientName(ingredient),
+                          'Needed',
+                          _ingredientColor(entry.key + allIngredients.length),
+                          _ingredientIcon(entry.key + allIngredients.length),
+                        );
+                      }).toList(),
                     ),
                   ],
                   const SizedBox(height: 20),
@@ -1072,6 +1078,18 @@ List<InlineSpan> _instructionSpans(
   }
 
   return spans;
+}
+
+String _formatIngredientName(String name) {
+  if (name.isEmpty) {
+    return 'Ingredient';
+  }
+
+  return name
+      .split(' ')
+      .where((part) => part.isNotEmpty)
+      .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
+      .join(' ');
 }
 
 Color _suggestedRecipeColor(int index) {
