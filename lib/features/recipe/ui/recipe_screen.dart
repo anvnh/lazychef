@@ -998,7 +998,6 @@ void _showSuggestedRecipe(
                   ],
                   const SizedBox(height: 20),
 
-                  // Hướng dẫn
                   Center(
                     child: Text(
                       'Instructions',
@@ -1007,11 +1006,9 @@ void _showSuggestedRecipe(
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Center(
-                    child: Text(
-                      recipe.instructions,
-                      textAlign: TextAlign.center,
-                    ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: _InstructionText(recipe.instructions),
                   ),
                 ],
               );
@@ -1021,6 +1018,60 @@ void _showSuggestedRecipe(
       );
     },
   );
+}
+
+class _InstructionText extends StatelessWidget {
+  const _InstructionText(this.instructions);
+
+  final String instructions;
+
+  @override
+  Widget build(BuildContext context) {
+    final baseStyle = Theme.of(
+      context,
+    ).textTheme.bodyMedium?.copyWith(height: 1.45);
+    final numberStyle = baseStyle?.copyWith(
+      color: const Color(0xFFE85D3F),
+      fontWeight: FontWeight.w800,
+    );
+
+    return RichText(
+      textAlign: TextAlign.left,
+      text: TextSpan(
+        style: baseStyle,
+        children: _instructionSpans(instructions, numberStyle),
+      ),
+    );
+  }
+}
+
+List<InlineSpan> _instructionSpans(
+  String instructions,
+  TextStyle? numberStyle,
+) {
+  final normalized = instructions.trim().replaceAllMapped(
+    RegExp(r'\s+(\d+\.\s+)'),
+    (match) => '\n${match.group(1)}',
+  );
+  final spans = <InlineSpan>[];
+  final numberPattern = RegExp(r'(^|\n)(\d+\.)\s*');
+  var cursor = 0;
+
+  for (final match in numberPattern.allMatches(normalized)) {
+    if (match.start > cursor) {
+      spans.add(TextSpan(text: normalized.substring(cursor, match.start)));
+    }
+
+    spans.add(TextSpan(text: match.group(1)));
+    spans.add(TextSpan(text: '${match.group(2)} ', style: numberStyle));
+    cursor = match.end;
+  }
+
+  if (cursor < normalized.length) {
+    spans.add(TextSpan(text: normalized.substring(cursor)));
+  }
+
+  return spans;
 }
 
 Color _suggestedRecipeColor(int index) {
