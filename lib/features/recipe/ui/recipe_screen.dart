@@ -500,15 +500,7 @@ class _SuggestedRecipeCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 const SizedBox(height: 20),
-                Container(
-                  width: 100,
-                  height: 100,
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.restaurant_menu_rounded),
-                ),
+                _RecipeImageCircle(imageUrl: recipe.imageUrl, size: 100),
                 const SizedBox(height: 16),
                 Text(
                   recipe.title,
@@ -582,6 +574,51 @@ class _RecipePill extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _RecipeImageCircle extends StatelessWidget {
+  const _RecipeImageCircle({
+    required this.imageUrl,
+    required this.size,
+    this.elevation = 0,
+  });
+
+  final String? imageUrl;
+  final double size;
+  final double elevation;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = imageUrl?.trim() ?? '';
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        boxShadow: elevation > 0
+            ? [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: elevation,
+                  offset: Offset(0, elevation / 2),
+                ),
+              ]
+            : null,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: url.isEmpty
+          ? Icon(Icons.restaurant_menu_rounded, size: size * 0.32)
+          : Image.network(
+              url,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) {
+                return Icon(Icons.restaurant_menu_rounded, size: size * 0.32);
+              },
+            ),
     );
   }
 }
@@ -786,28 +823,11 @@ void _showSuggestedRecipe(
                 controller: scrollController,
                 padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
                 children: [
-                  // Hình ảnh recipe
                   Center(
-                    child: Container(
-                      width: 180,
-                      height: 180,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.1),
-                            blurRadius: 24,
-                            offset: const Offset(0, 12),
-                          ),
-                        ],
-                        image: const DecorationImage(
-                          image: NetworkImage(
-                            'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?q=80&w=500&auto=format&fit=crop',
-                          ),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
+                    child: _RecipeImageCircle(
+                      imageUrl: recipe.imageUrl,
+                      size: 180,
+                      elevation: 24,
                     ),
                   ),
                   const SizedBox(height: 16),

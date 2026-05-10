@@ -106,6 +106,7 @@ The database is hosted on Turso and interacted with via Drizzle ORM.
 - `title` (text)
 - `description` (text)
 - `instructions` (text)
+- `image_url` (text/optional)
 
 ---
 

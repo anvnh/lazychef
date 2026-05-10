@@ -44,3 +44,16 @@ export async function checkDatabaseConnection(): Promise<number> {
 
   return Number(row?.ok ?? 0);
 }
+
+export async function ensureDatabaseSchema(): Promise<void> {
+  const columns = await getTursoClient().execute(
+    "PRAGMA table_info(recipe_suggestions)",
+  );
+  const hasImageUrl = columns.rows.some((row) => row.name === "image_url");
+
+  if (!hasImageUrl) {
+    await getTursoClient().execute(
+      "ALTER TABLE recipe_suggestions ADD COLUMN image_url TEXT",
+    );
+  }
+}

@@ -8,6 +8,7 @@ class SuggestedRecipe {
     required this.cookingTime,
     required this.difficulty,
     required this.missingIngredients,
+    required this.imageUrl,
   });
 
   factory SuggestedRecipe.fromJson(Map<String, dynamic> json) {
@@ -20,6 +21,7 @@ class SuggestedRecipe {
       cookingTime: json['cookingTime'] as String? ?? '',
       difficulty: json['difficulty'] as String? ?? 'easy',
       missingIngredients: _stringList(json['missingIngredients']),
+      imageUrl: json['imageUrl'] as String?,
     );
   }
 
@@ -31,6 +33,7 @@ class SuggestedRecipe {
   final String cookingTime;
   final String difficulty;
   final List<String> missingIngredients;
+  final String? imageUrl;
 
   String get difficultyLabel {
     if (difficulty.isEmpty) {

@@ -6,6 +6,7 @@ import { detectedIngredients, recipeSuggestions, scans } from "../db/schema.js";
 
 const defaultGeminiModel = "gemini-2.5-flash";
 const geminiApiBaseUrl = "https://generativelanguage.googleapis.com/v1beta";
+const googleCustomSearchUrl = "https://www.googleapis.com/customsearch/v1";
 
 type GeminiGenerateContentResponse = {
   candidates?: Array<{
@@ -20,6 +21,21 @@ type GeminiGenerateContentResponse = {
   };
 };
 
+type GoogleImageSearchResponse = {
+  items?: Array<{
+    link?: string;
+  }>;
+  error?: {
+    message?: string;
+  };
+};
+
+type RecipeImageUpdateCandidate = {
+  id: string;
+  title: string;
+  imageUrl?: string | null;
+};
+
 type GeneratedRecipe = {
   title: string;
   description: string;
@@ -32,6 +48,7 @@ type GeneratedRecipe = {
 export type RecipeSuggestionResult = GeneratedRecipe & {
   id: string;
   scanId: string;
+  imageUrl: string | null;
 };
 
 export type RecipeIngredientResult = {
@@ -44,6 +61,11 @@ export type SuggestedRecipesResult = {
   ingredients: RecipeIngredientResult[];
   retryable?: boolean;
 };
+
+const recipeGenerationJobs = new Map<
+  string,
+  Promise<RecipeSuggestionResult[]>
+>();
 
 export class RecipeGenerationError extends Error {
   constructor(message: string) {
@@ -62,6 +84,51 @@ export async function generateAndSaveRecipeSuggestions(
     return [];
   }
 
+  const runningJob = recipeGenerationJobs.get(scanId);
+  if (runningJob) {
+    return runningJob;
+  }
+
+  const existingRecipes = await listRecipeSuggestionsForScan(scanId);
+  if (existingRecipes.length > 0) {
+    return existingRecipes;
+  }
+
+  const queuedJob = recipeGenerationJobs.get(scanId);
+  if (queuedJob) {
+    return queuedJob;
+  }
+
+  const job = generateAndPersistRecipeSuggestions(
+    scanId,
+    normalizedIngredients,
+  );
+  recipeGenerationJobs.set(scanId, job);
+
+  try {
+    return await job;
+  } finally {
+    if (recipeGenerationJobs.get(scanId) === job) {
+      recipeGenerationJobs.delete(scanId);
+    }
+  }
+}
+
+export function queueRecipeSuggestionsForScan(
+  scanId: string,
+  ingredientNames: string[],
+): void {
+  void generateAndSaveRecipeSuggestions(scanId, ingredientNames).catch(
+    (error) => {
+      console.error("Background recipe generation failed", error);
+    },
+  );
+}
+
+async function generateAndPersistRecipeSuggestions(
+  scanId: string,
+  normalizedIngredients: string[],
+): Promise<RecipeSuggestionResult[]> {
   const generatedRecipes = await generateRecipes(normalizedIngredients);
 
   if (generatedRecipes.length === 0) {
@@ -78,9 +145,11 @@ export async function generateAndSaveRecipeSuggestions(
     cookingTime: recipe.cookingTime,
     difficulty: recipe.difficulty,
     missingIngredients: JSON.stringify(recipe.missingIngredients),
+    imageUrl: null,
   }));
 
   await db.insert(recipeSuggestions).values(recipesToInsert);
+  void updateRecipeSuggestionImageUrls(recipesToInsert);
 
   return recipesToInsert.map(toRecipeSuggestionResult);
 }
@@ -102,6 +171,7 @@ export async function suggestRecipesForLatestScan(
 
   const existingRecipes = await listRecipeSuggestionsForScan(latestScan.id);
   if (existingRecipes.length > 0) {
+    queueMissingRecipeImageUrls(existingRecipes);
     return { recipes: existingRecipes, ingredients };
   }
 
@@ -272,7 +342,86 @@ function toRecipeSuggestionResult(
     cookingTime: recipe.cookingTime ?? "",
     difficulty: normalizeDifficulty(recipe.difficulty),
     missingIngredients: parseMissingIngredients(recipe.missingIngredients),
+    imageUrl: recipe.imageUrl,
   };
+}
+
+async function updateRecipeSuggestionImageUrls(
+  recipes: RecipeImageUpdateCandidate[],
+): Promise<void> {
+  await Promise.all(
+    recipes.map(async (recipe) => {
+      const imageUrl = await fetchRecipeImageUrl(recipe.title);
+
+      if (!imageUrl) {
+        return;
+      }
+
+      try {
+        await getDb()
+          .update(recipeSuggestions)
+          .set({ imageUrl })
+          .where(eq(recipeSuggestions.id, recipe.id));
+
+        recipe.imageUrl = imageUrl;
+      } catch (error) {
+        console.error("Recipe image URL update failed", error);
+      }
+    }),
+  );
+}
+
+function queueMissingRecipeImageUrls(
+  recipes: RecipeImageUpdateCandidate[],
+): void {
+  const recipesWithoutImages = recipes.filter((recipe) => !recipe.imageUrl);
+
+  if (recipesWithoutImages.length === 0) {
+    return;
+  }
+
+  void updateRecipeSuggestionImageUrls(recipesWithoutImages);
+}
+
+async function fetchRecipeImageUrl(
+  recipeTitle: string,
+): Promise<string | null> {
+  const apiKey = readOptionalEnv("GOOGLE_CUSTOM_SEARCH_API_KEY", "");
+  const cx = readOptionalEnv("GOOGLE_CUSTOM_SEARCH_CX", "");
+
+  if (!apiKey || !cx) {
+    return null;
+  }
+
+  const url = new URL(googleCustomSearchUrl);
+  url.searchParams.set("key", apiKey);
+  url.searchParams.set("cx", cx);
+  url.searchParams.set("q", `${recipeTitle} food`);
+  url.searchParams.set("searchType", "image");
+  url.searchParams.set("num", "1");
+
+  try {
+    const response = await fetch(url);
+    const payload = (await response
+      .json()
+      .catch(() => null)) as GoogleImageSearchResponse | null;
+
+    if (!response.ok) {
+      console.error(
+        "Recipe image search failed",
+        payload?.error?.message ?? response.statusText,
+      );
+      return null;
+    }
+
+    const imageUrl = payload?.items?.[0]?.link;
+    return typeof imageUrl === "string" && imageUrl.trim()
+      ? imageUrl.trim()
+      : null;
+  } catch (error) {
+    console.error("Recipe image search failed", error);
+    return null;
+  }
 }
 
 function toRecipeIngredientResult(

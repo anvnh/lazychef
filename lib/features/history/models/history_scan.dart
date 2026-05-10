@@ -84,6 +84,7 @@ class HistoryRecipeSuggestion {
     required this.cookingTime,
     required this.difficulty,
     required this.missingIngredients,
+    required this.imageUrl,
   });
 
   factory HistoryRecipeSuggestion.fromJson(Map<String, dynamic> json) {
@@ -95,6 +96,7 @@ class HistoryRecipeSuggestion {
       cookingTime: json['cookingTime'] as String? ?? '',
       difficulty: json['difficulty'] as String? ?? 'easy',
       missingIngredients: _stringList(json['missingIngredients']),
+      imageUrl: json['imageUrl'] as String?,
     );
   }
 
@@ -105,6 +107,7 @@ class HistoryRecipeSuggestion {
   final String cookingTime;
   final String difficulty;
   final List<String> missingIngredients;
+  final String? imageUrl;
 }
 
 List<Map<String, dynamic>> _jsonList(Object? value) {

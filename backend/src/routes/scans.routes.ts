@@ -5,10 +5,7 @@ import {
   uploadImageToCloudinary,
 } from "../cloudinary/cloudinary.service.js";
 import { authMiddleware } from "../middleware/auth.js";
-import {
-  generateAndSaveRecipeSuggestions,
-  type RecipeSuggestionResult,
-} from "../recipes/recipe.service.js";
+import { queueRecipeSuggestionsForScan } from "../recipes/recipe.service.js";
 import { listUserScanHistory, saveScanResult } from "../scans/scan.service.js";
 import type { UploadableImage } from "../scans/uploadable-image.js";
 import {
@@ -80,21 +77,13 @@ scansRoutes.post("/upload", async (context) => {
       image: uploadResult.value,
       detectedIngredients: analysis.detectedIngredients,
     });
-    let recipeSuggestions: RecipeSuggestionResult[] = [];
 
-    try {
-      recipeSuggestions = await generateAndSaveRecipeSuggestions(
-        scan.id,
-        analysis.detectedIngredients.map((ingredient) => ingredient.name),
-      );
-    } catch (error) {
-      console.error("Recipe generation failed after scan upload", error);
-    }
-
-    return context.json(
-      { scan, image: uploadResult.value, analysis, recipeSuggestions },
-      201,
+    queueRecipeSuggestionsForScan(
+      scan.id,
+      analysis.detectedIngredients.map((ingredient) => ingredient.name),
     );
+
+    return context.json({ scan, image: uploadResult.value, analysis }, 201);
   } catch (error) {
     return handleScanError(context, error);
   }

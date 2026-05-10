@@ -41,6 +41,7 @@ export const recipeSuggestions = sqliteTable("recipe_suggestions", {
   cookingTime: text("cooking_time"),
   difficulty: text("difficulty", { enum: ["easy", "medium", "hard"] }),
   missingIngredients: text("missing_ingredients"),
+  imageUrl: text("image_url"),
 });
 
 export type User = typeof users.$inferSelect;

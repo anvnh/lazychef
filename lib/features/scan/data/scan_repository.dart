@@ -39,6 +39,7 @@ class ScanRepository {
         options: Options(
           contentType: Headers.multipartFormDataContentType,
           headers: {'Authorization': 'Bearer $token'},
+          receiveTimeout: const Duration(seconds: 90),
         ),
       );
 
@@ -90,8 +91,13 @@ class ScanRepository {
       return 'Could not upload scan image. Server returned $statusCode.';
     }
 
+    if (error.type == DioExceptionType.receiveTimeout) {
+      return 'Scan image uploaded, but ingredient analysis took too long. Try opening history or scanning again.';
+    }
+
     if (error.type == DioExceptionType.connectionError ||
-        error.type == DioExceptionType.connectionTimeout) {
+        error.type == DioExceptionType.connectionTimeout ||
+        error.type == DioExceptionType.sendTimeout) {
       return 'Could not reach the backend. Check API_URL and make sure the server is running.';
     }
 
