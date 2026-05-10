@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lazychef/core/api/api_client.dart';
+import 'package:lazychef/features/recipe/models/recipe_collection_item.dart';
 import 'package:lazychef/features/recipe/models/suggested_recipe.dart';
 
 final recipeRepositoryProvider = Provider<RecipeRepository>((ref) {
@@ -64,6 +65,53 @@ class RecipeRepository {
       throw const RecipeSuggestionException(
         'Could not load recipe suggestions.',
       );
+    }
+  }
+
+  Future<List<RecipeCollectionItem>> fetchFavoriteRecipes() async {
+    try {
+      final response = await _dio.get<dynamic>('/recipes/favorites');
+      final data = response.data;
+      final recipes = data is Map ? data['recipes'] : data;
+
+      if (recipes is List) {
+        return recipes
+            .whereType<Map>()
+            .map((recipe) => Map<String, dynamic>.from(recipe))
+            .map(RecipeCollectionItem.fromJson)
+            .toList();
+      }
+
+      return const [];
+    } on DioException catch (error) {
+      throw RecipeSuggestionException(_parseDioError(error));
+    } catch (_) {
+      throw const RecipeSuggestionException('Could not load favorite recipes.');
+    }
+  }
+
+  Future<RecipeCollectionItem> addFavoriteRecipe(String recipeId) async {
+    try {
+      final response = await _dio.post<dynamic>('/recipes/favorites/$recipeId');
+      final data = response.data;
+
+      if (data is Map && data['recipe'] is Map) {
+        return RecipeCollectionItem.fromJson(
+          Map<String, dynamic>.from(data['recipe'] as Map),
+        );
+      }
+
+      throw const RecipeSuggestionException('Could not save favorite recipe.');
+    } on DioException catch (error) {
+      throw RecipeSuggestionException(_parseDioError(error));
+    }
+  }
+
+  Future<void> removeFavoriteRecipe(String recipeId) async {
+    try {
+      await _dio.delete<dynamic>('/recipes/favorites/$recipeId');
+    } on DioException catch (error) {
+      throw RecipeSuggestionException(_parseDioError(error));
     }
   }
 

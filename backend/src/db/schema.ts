@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { real, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
@@ -43,6 +43,28 @@ export const recipeSuggestions = sqliteTable("recipe_suggestions", {
   missingIngredients: text("missing_ingredients"),
   imageUrl: text("image_url"),
 });
+
+export const favoriteRecipes = sqliteTable(
+  "favorite_recipes",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    recipeSuggestionId: text("recipe_suggestion_id")
+      .notNull()
+      .references(() => recipeSuggestions.id, { onDelete: "cascade" }),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("favorite_recipes_user_recipe_unique").on(
+      table.userId,
+      table.recipeSuggestionId,
+    ),
+  ],
+);
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;

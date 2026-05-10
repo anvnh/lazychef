@@ -1,8 +1,13 @@
 import { randomUUID } from "node:crypto";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { readOptionalEnv, readRequiredEnv } from "../config/env.js";
 import { getDb } from "../db/client.js";
-import { detectedIngredients, recipeSuggestions, scans } from "../db/schema.js";
+import {
+  detectedIngredients,
+  favoriteRecipes,
+  recipeSuggestions,
+  scans,
+} from "../db/schema.js";
 
 const cloudflareRecipeModel = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 const googleCustomSearchUrl = "https://www.googleapis.com/customsearch/v1";
@@ -184,6 +189,74 @@ export async function suggestRecipesForLatestScan(
   }
 }
 
+export async function listFavoriteRecipes(
+  userId: string,
+): Promise<RecipeSuggestionResult[]> {
+  const rows = await getDb()
+    .select({
+      id: recipeSuggestions.id,
+      scanId: recipeSuggestions.scanId,
+      title: recipeSuggestions.title,
+      description: recipeSuggestions.description,
+      instructions: recipeSuggestions.instructions,
+      cookingTime: recipeSuggestions.cookingTime,
+      difficulty: recipeSuggestions.difficulty,
+      missingIngredients: recipeSuggestions.missingIngredients,
+      imageUrl: recipeSuggestions.imageUrl,
+    })
+    .from(favoriteRecipes)
+    .innerJoin(
+      recipeSuggestions,
+      eq(favoriteRecipes.recipeSuggestionId, recipeSuggestions.id),
+    )
+    .innerJoin(scans, eq(recipeSuggestions.scanId, scans.id))
+    .where(and(eq(favoriteRecipes.userId, userId), eq(scans.userId, userId)))
+    .orderBy(desc(favoriteRecipes.createdAt));
+
+  return rows.map(toRecipeSuggestionResult);
+}
+
+export async function addFavoriteRecipe(input: {
+  userId: string;
+  recipeSuggestionId: string;
+}): Promise<RecipeSuggestionResult | null> {
+  const recipe = await getUserRecipeSuggestion(
+    input.userId,
+    input.recipeSuggestionId,
+  );
+
+  if (!recipe) {
+    return null;
+  }
+
+  await getDb()
+    .insert(favoriteRecipes)
+    .values({
+      id: randomUUID(),
+      userId: input.userId,
+      recipeSuggestionId: input.recipeSuggestionId,
+    })
+    .onConflictDoNothing({
+      target: [favoriteRecipes.userId, favoriteRecipes.recipeSuggestionId],
+    });
+
+  return recipe;
+}
+
+export async function removeFavoriteRecipe(input: {
+  userId: string;
+  recipeSuggestionId: string;
+}): Promise<void> {
+  await getDb()
+    .delete(favoriteRecipes)
+    .where(
+      and(
+        eq(favoriteRecipes.userId, input.userId),
+        eq(favoriteRecipes.recipeSuggestionId, input.recipeSuggestionId),
+      ),
+    );
+}
+
 export async function listRecipeSuggestionsForScan(
   scanId: string,
 ): Promise<RecipeSuggestionResult[]> {
@@ -193,6 +266,35 @@ export async function listRecipeSuggestionsForScan(
     .where(eq(recipeSuggestions.scanId, scanId));
 
   return rows.map(toRecipeSuggestionResult);
+}
+
+async function getUserRecipeSuggestion(
+  userId: string,
+  recipeSuggestionId: string,
+): Promise<RecipeSuggestionResult | null> {
+  const [recipe] = await getDb()
+    .select({
+      id: recipeSuggestions.id,
+      scanId: recipeSuggestions.scanId,
+      title: recipeSuggestions.title,
+      description: recipeSuggestions.description,
+      instructions: recipeSuggestions.instructions,
+      cookingTime: recipeSuggestions.cookingTime,
+      difficulty: recipeSuggestions.difficulty,
+      missingIngredients: recipeSuggestions.missingIngredients,
+      imageUrl: recipeSuggestions.imageUrl,
+    })
+    .from(recipeSuggestions)
+    .innerJoin(scans, eq(recipeSuggestions.scanId, scans.id))
+    .where(
+      and(
+        eq(recipeSuggestions.id, recipeSuggestionId),
+        eq(scans.userId, userId),
+      ),
+    )
+    .limit(1);
+
+  return recipe ? toRecipeSuggestionResult(recipe) : null;
 }
 
 async function getLatestUserScan(userId: string) {

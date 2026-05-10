@@ -1,7 +1,10 @@
 import { Hono } from "hono";
 import { authMiddleware } from "../middleware/auth.js";
 import {
+  addFavoriteRecipe,
+  listFavoriteRecipes,
   RecipeGenerationError,
+  removeFavoriteRecipe,
   suggestRecipesForLatestScan,
 } from "../recipes/recipe.service.js";
 
@@ -25,5 +28,63 @@ recipesRoutes.get("/suggest", async (context) => {
 
     console.error("Recipe suggestion endpoint failed", error);
     return context.json({ recipes: [], ingredients: [], retryable: true });
+  }
+});
+
+recipesRoutes.get("/favorites", async (context) => {
+  try {
+    const user = context.get("user");
+    const recipes = await listFavoriteRecipes(user.id);
+
+    return context.json({ recipes });
+  } catch (error) {
+    console.error("Favorite recipes list endpoint failed", error);
+    return context.json({ error: "Could not load favorite recipes" }, 500);
+  }
+});
+
+recipesRoutes.post("/favorites/:recipeId", async (context) => {
+  try {
+    const user = context.get("user");
+    const recipeId = context.req.param("recipeId").trim();
+
+    if (!recipeId) {
+      return context.json({ error: "Recipe id is required" }, 400);
+    }
+
+    const recipe = await addFavoriteRecipe({
+      userId: user.id,
+      recipeSuggestionId: recipeId,
+    });
+
+    if (!recipe) {
+      return context.json({ error: "Recipe not found" }, 404);
+    }
+
+    return context.json({ recipe }, 201);
+  } catch (error) {
+    console.error("Favorite recipe create endpoint failed", error);
+    return context.json({ error: "Could not save favorite recipe" }, 500);
+  }
+});
+
+recipesRoutes.delete("/favorites/:recipeId", async (context) => {
+  try {
+    const user = context.get("user");
+    const recipeId = context.req.param("recipeId").trim();
+
+    if (!recipeId) {
+      return context.json({ error: "Recipe id is required" }, 400);
+    }
+
+    await removeFavoriteRecipe({
+      userId: user.id,
+      recipeSuggestionId: recipeId,
+    });
+
+    return context.json({ ok: true });
+  } catch (error) {
+    console.error("Favorite recipe delete endpoint failed", error);
+    return context.json({ error: "Could not remove favorite recipe" }, 500);
   }
 });
