@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lazychef/core/router/app_router.dart';
-import 'package:lazychef/core/theme/app_theme.dart';
 import 'package:lazychef/core/widgets/app_bottom_bar.dart';
 import 'package:lazychef/core/widgets/app_button.dart';
 import 'package:lazychef/core/widgets/lazychef_scaffold.dart';
-import 'package:lazychef/core/widgets/section_title.dart';
 import 'package:lazychef/features/history/models/history_scan.dart';
 import 'package:lazychef/features/history/providers/history_provider.dart';
 import 'package:lazychef/features/scan/utils/scan_image_picker.dart';
@@ -65,17 +63,16 @@ class _IngredientsScreenState extends ConsumerState<IngredientsScreen> {
             children: [
               Row(
                 children: [
-                  
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       'My ingredients',
                       style: TextStyle(
-                  fontSize: 25,
-                  fontWeight: FontWeight.w700,
-                  height: 1.3,
-                  color: Color(0xFF2C3236),
-                ),
+                        fontSize: 25,
+                        fontWeight: FontWeight.w700,
+                        height: 1.3,
+                        color: Color(0xFF2C3236),
+                      ),
                     ),
                   ),
                   IconButton.filledTonal(
@@ -94,8 +91,8 @@ class _IngredientsScreenState extends ConsumerState<IngredientsScreen> {
                 ],
               ),
               const SizedBox(height: 16),
-              
-               Padding(
+
+              Padding(
                 padding: const EdgeInsets.only(left: 15, right: 10),
                 child: Text(
                   'INGREDIENTS FROM SAVED SCANS',
