@@ -45,14 +45,6 @@ class RecipeScreen extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Hi YenNhi!',
-          style: TextStyle(
-            fontSize: 16,
-            color: Colors.grey.shade600,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
         const SizedBox(height: 8),
         const Text(
           'Make your own food,\nstay at home',
@@ -204,7 +196,11 @@ class RecipeScreen extends ConsumerWidget {
                     child: _SuggestedRecipeCard(
                       recipe: entry.value,
                       color: _suggestedRecipeColor(entry.key),
-                      onTap: () => _showSuggestedRecipe(context, entry.value),
+                      onTap: () => _showSuggestedRecipe(
+                        context,
+                        entry.value,
+                        response.ingredients,
+                      ),
                     ),
                   );
                 }).toList(),
@@ -714,11 +710,14 @@ class _NoSuggestedRecipes extends StatelessWidget {
   }
 }
 
-// Hàm hỗ trợ vẽ UI cho từng nguyên liệu
-// Hàm hỗ trợ vẽ UI cho từng nguyên liệu (Đã được phóng to)
-Widget _buildIngredientItem(String name, String amount, Color color, IconData icon) {
+Widget _buildIngredientItem(
+  String name,
+  String amount,
+  Color color,
+  IconData icon,
+) {
   return Container(
-    width: 100, // Tăng độ rộng tổng thể (cũ là 80)
+    width: 100,
     margin: const EdgeInsets.only(bottom: 8),
     child: Column(
       mainAxisSize: MainAxisSize.min,
@@ -728,9 +727,15 @@ Widget _buildIngredientItem(String name, String amount, Color color, IconData ic
           height: 80, // Tăng chiều cao ô vuông (cũ là 60)
           decoration: BoxDecoration(
             color: color,
-            borderRadius: BorderRadius.circular(20), // Bo góc to hơn chút cho cân đối
+            borderRadius: BorderRadius.circular(
+              20,
+            ), // Bo góc to hơn chút cho cân đối
           ),
-          child: Icon(icon, color: Colors.black54, size: 36), // Tăng size icon (cũ là 28)
+          child: Icon(
+            icon,
+            color: Colors.black54,
+            size: 36,
+          ), // Tăng size icon (cũ là 28)
         ),
         const SizedBox(height: 10),
         Text(
@@ -738,37 +743,39 @@ Widget _buildIngredientItem(String name, String amount, Color color, IconData ic
           textAlign: TextAlign.center,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), // Tăng size chữ
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+          ), // Tăng size chữ
         ),
         const SizedBox(height: 4),
         Text(
           amount,
-          style: TextStyle(color: Colors.grey.shade600, fontSize: 13), // Tăng size chữ
+          style: TextStyle(
+            color: Colors.grey.shade600,
+            fontSize: 13,
+          ), // Tăng size chữ
         ),
       ],
     ),
   );
 }
 
-void _showSuggestedRecipe(BuildContext context, SuggestedRecipe recipe) {
-  // Dữ liệu mock (bạn thay thế bằng dữ liệu thực tế nếu có)
-  final List<Map<String, dynamic>> allIngredients = [
-    {'name': 'Tomato', 'amount': '2 pcs', 'color': const Color(0xFFFFCDD2), 'icon': Icons.local_pizza},
-    {'name': 'Beef', 'amount': '200g', 'color': const Color(0xFFD7CCC8), 'icon': Icons.set_meal},
-    {'name': 'Onion', 'amount': '1 pc', 'color': const Color(0xFFFFF9C4), 'icon': Icons.eco},
-  ];
-
+void _showSuggestedRecipe(
+  BuildContext context,
+  SuggestedRecipe recipe,
+  List<SuggestedIngredient> allIngredients,
+) {
   showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
     backgroundColor: const Color(0xFFF7F8FA),
     builder: (context) {
-      // Dùng StatefulBuilder để quản lý state (toggle xem nguyên liệu) bên trong BottomSheet
+      var showAllIngredients = false;
+
       return StatefulBuilder(
         builder: (BuildContext context, StateSetter setState) {
-          bool showAllIngredients = false;
-
           return DraggableScrollableSheet(
             expand: false,
             initialChildSize: 0.72,
@@ -789,7 +796,7 @@ void _showSuggestedRecipe(BuildContext context, SuggestedRecipe recipe) {
                         color: Colors.white,
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
+                            color: Colors.black.withValues(alpha: 0.1),
                             blurRadius: 24,
                             offset: const Offset(0, 12),
                           ),
@@ -804,7 +811,7 @@ void _showSuggestedRecipe(BuildContext context, SuggestedRecipe recipe) {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Tiêu đề
                   Center(
                     child: Text(
@@ -819,7 +826,7 @@ void _showSuggestedRecipe(BuildContext context, SuggestedRecipe recipe) {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Stats (Thời gian và độ khó)
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -827,7 +834,11 @@ void _showSuggestedRecipe(BuildContext context, SuggestedRecipe recipe) {
                       Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.access_time_rounded, color: Colors.grey, size: 25),
+                          const Icon(
+                            Icons.access_time_rounded,
+                            color: Colors.grey,
+                            size: 25,
+                          ),
                           const SizedBox(height: 8),
                           Text(
                             recipe.cookingTime,
@@ -843,7 +854,11 @@ void _showSuggestedRecipe(BuildContext context, SuggestedRecipe recipe) {
                       Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.speed_rounded, color: Colors.grey, size: 25),
+                          const Icon(
+                            Icons.speed_rounded,
+                            color: Colors.grey,
+                            size: 25,
+                          ),
                           const SizedBox(height: 8),
                           Text(
                             recipe.difficultyLabel,
@@ -866,17 +881,14 @@ void _showSuggestedRecipe(BuildContext context, SuggestedRecipe recipe) {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  
+
                   // Mô tả
                   Text(
                     'Description:',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    recipe.description,
-                    textAlign: TextAlign.center,
-                  ),
+                  Text(recipe.description, textAlign: TextAlign.center),
                   const SizedBox(height: 24),
 
                   // Danh sách nguyên liệu
@@ -891,61 +903,75 @@ void _showSuggestedRecipe(BuildContext context, SuggestedRecipe recipe) {
                           color: Color(0xFF2C3236),
                         ),
                       ),
-                      GestureDetector(
-                        onTap: () {
-                          // Gọi setState của StatefulBuilder để rebuild lại BottomSheet
-                          setState(() {
-                            showAllIngredients = !showAllIngredients;
-                          });
-                        },
-                        child: Text(
-                          showAllIngredients ? 'Show less' : 'See all',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xFFFF7E5F),
+                      if (allIngredients.isNotEmpty)
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              showAllIngredients = !showAllIngredients;
+                            });
+                          },
+                          child: Text(
+                            showAllIngredients ? 'Show less' : 'See all',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFFFF7E5F),
+                            ),
                           ),
                         ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 24),
 
-                  // Lưới nguyên liệu
-                  // Lưới nguyên liệu
-                  showAllIngredients
-                      ? Wrap(
-                          spacing: 16,
-                          runSpacing: 24,
-                          children: allIngredients.map((ing) {
-                            return _buildIngredientItem(
-                              ing['name'] as String,
-                              ing['amount'] as String,
-                              ing['color'] as Color,
-                              ing['icon'] as IconData,
-                            );
-                          }).toList(),
-                        )
-                      : SizedBox(
-                          height: 160, 
-                          child: ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            clipBehavior: Clip.none,
-                            itemCount: allIngredients.length,
-                            itemBuilder: (context, index) {
-                              final ing = allIngredients[index];
-                              return Padding(
-                                padding: const EdgeInsets.only(right: 16.0),
-                                child: _buildIngredientItem(
-                                  ing['name'] as String,
-                                  ing['amount'] as String,
-                                  ing['color'] as Color,
-                                  ing['icon'] as IconData,
-                                ),
-                              );
-                            },
-                          ),
-                        ),
+                  if (allIngredients.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: const Text(
+                        'No detected ingredients were saved for this scan.',
+                        textAlign: TextAlign.center,
+                      ),
+                    )
+                  else if (showAllIngredients)
+                    Wrap(
+                      spacing: 16,
+                      runSpacing: 24,
+                      children: allIngredients.asMap().entries.map((entry) {
+                        final ingredient = entry.value;
+
+                        return _buildIngredientItem(
+                          ingredient.displayName,
+                          ingredient.confidenceLabel,
+                          _ingredientColor(entry.key),
+                          _ingredientIcon(entry.key),
+                        );
+                      }).toList(),
+                    )
+                  else
+                    SizedBox(
+                      height: 160,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        clipBehavior: Clip.none,
+                        itemCount: allIngredients.length,
+                        itemBuilder: (context, index) {
+                          final ingredient = allIngredients[index];
+
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 16.0),
+                            child: _buildIngredientItem(
+                              ingredient.displayName,
+                              ingredient.confidenceLabel,
+                              _ingredientColor(index),
+                              _ingredientIcon(index),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
                   const SizedBox(height: 30),
 
                   // Nguyên liệu bị thiếu
@@ -1007,4 +1033,30 @@ Color _suggestedRecipeColor(int index) {
   ];
 
   return colors[index % colors.length];
+}
+
+Color _ingredientColor(int index) {
+  const colors = [
+    Color(0xFFFFCDD2),
+    Color(0xFFD7CCC8),
+    Color(0xFFFFF9C4),
+    Color(0xFFC8E6C9),
+    Color(0xFFBBDEFB),
+    Color(0xFFFFE0B2),
+  ];
+
+  return colors[index % colors.length];
+}
+
+IconData _ingredientIcon(int index) {
+  const icons = [
+    Icons.restaurant_menu_rounded,
+    Icons.set_meal,
+    Icons.eco,
+    Icons.egg_alt_outlined,
+    Icons.local_pizza,
+    Icons.rice_bowl_outlined,
+  ];
+
+  return icons[index % icons.length];
 }

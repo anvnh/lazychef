@@ -24,6 +24,7 @@ class RecipeRepository {
               .map((recipe) => Map<String, dynamic>.from(recipe))
               .map(SuggestedRecipe.fromJson)
               .toList(),
+          ingredients: const [],
           retryable: false,
         );
       }
@@ -31,6 +32,7 @@ class RecipeRepository {
       if (data is Map) {
         final map = Map<String, dynamic>.from(data);
         final recipes = map['recipes'];
+        final ingredients = map['ingredients'];
 
         return SuggestedRecipesResponse(
           recipes: recipes is List
@@ -40,11 +42,22 @@ class RecipeRepository {
                     .map(SuggestedRecipe.fromJson)
                     .toList()
               : const [],
+          ingredients: ingredients is List
+              ? ingredients
+                    .whereType<Map>()
+                    .map((ingredient) => Map<String, dynamic>.from(ingredient))
+                    .map(SuggestedIngredient.fromJson)
+                    .toList()
+              : const [],
           retryable: map['retryable'] == true,
         );
       }
 
-      return const SuggestedRecipesResponse(recipes: [], retryable: false);
+      return const SuggestedRecipesResponse(
+        recipes: [],
+        ingredients: [],
+        retryable: false,
+      );
     } on DioException catch (error) {
       throw RecipeSuggestionException(_parseDioError(error));
     } catch (_) {

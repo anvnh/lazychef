@@ -44,11 +44,47 @@ class SuggestedRecipe {
 class SuggestedRecipesResponse {
   const SuggestedRecipesResponse({
     required this.recipes,
+    required this.ingredients,
     required this.retryable,
   });
 
   final List<SuggestedRecipe> recipes;
+  final List<SuggestedIngredient> ingredients;
   final bool retryable;
+}
+
+class SuggestedIngredient {
+  const SuggestedIngredient({required this.name, required this.confidence});
+
+  factory SuggestedIngredient.fromJson(Map<String, dynamic> json) {
+    return SuggestedIngredient(
+      name: json['name'] as String? ?? '',
+      confidence: (json['confidence'] as num?)?.toDouble() ?? 0,
+    );
+  }
+
+  final String name;
+  final double confidence;
+
+  String get displayName {
+    if (name.isEmpty) {
+      return 'Ingredient';
+    }
+
+    return name
+        .split(' ')
+        .where((part) => part.isNotEmpty)
+        .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
+        .join(' ');
+  }
+
+  String get confidenceLabel {
+    if (confidence <= 0) {
+      return 'Detected';
+    }
+
+    return '${(confidence * 100).round()}% match';
+  }
 }
 
 List<String> _stringList(Object? value) {

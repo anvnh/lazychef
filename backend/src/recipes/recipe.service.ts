@@ -34,8 +34,14 @@ export type RecipeSuggestionResult = GeneratedRecipe & {
   scanId: string;
 };
 
+export type RecipeIngredientResult = {
+  name: string;
+  confidence: number;
+};
+
 export type SuggestedRecipesResult = {
   recipes: RecipeSuggestionResult[];
+  ingredients: RecipeIngredientResult[];
   retryable?: boolean;
 };
 
@@ -88,15 +94,16 @@ export async function suggestRecipesForLatestScan(
     throw new RecipeGenerationError("No scan history found");
   }
 
-  const existingRecipes = await listRecipeSuggestionsForScan(latestScan.id);
-  if (existingRecipes.length > 0) {
-    return { recipes: existingRecipes };
-  }
-
   const ingredientRows = await getDb()
     .select()
     .from(detectedIngredients)
     .where(eq(detectedIngredients.scanId, latestScan.id));
+  const ingredients = ingredientRows.map(toRecipeIngredientResult);
+
+  const existingRecipes = await listRecipeSuggestionsForScan(latestScan.id);
+  if (existingRecipes.length > 0) {
+    return { recipes: existingRecipes, ingredients };
+  }
 
   try {
     const recipes = await generateAndSaveRecipeSuggestions(
@@ -104,10 +111,10 @@ export async function suggestRecipesForLatestScan(
       ingredientRows.map((ingredient) => ingredient.name),
     );
 
-    return { recipes };
+    return { recipes, ingredients };
   } catch (error) {
     console.error("Recipe generation failed", error);
-    return { recipes: [], retryable: true };
+    return { recipes: [], ingredients, retryable: true };
   }
 }
 
@@ -265,6 +272,15 @@ function toRecipeSuggestionResult(
     cookingTime: recipe.cookingTime ?? "",
     difficulty: normalizeDifficulty(recipe.difficulty),
     missingIngredients: parseMissingIngredients(recipe.missingIngredients),
+  };
+}
+
+function toRecipeIngredientResult(
+  ingredient: typeof detectedIngredients.$inferSelect,
+): RecipeIngredientResult {
+  return {
+    name: ingredient.name,
+    confidence: Number(ingredient.confidence ?? 0),
   };
 }
 

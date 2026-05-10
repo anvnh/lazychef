@@ -24,6 +24,6 @@ recipesRoutes.get("/suggest", async (context) => {
     }
 
     console.error("Recipe suggestion endpoint failed", error);
-    return context.json({ recipes: [], retryable: true });
+    return context.json({ recipes: [], ingredients: [], retryable: true });
   }
 });
