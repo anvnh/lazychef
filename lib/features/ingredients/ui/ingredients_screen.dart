@@ -11,6 +11,12 @@ import 'package:lazychef/features/scan/utils/scan_image_picker.dart';
 enum _IngredientFilter {
   all('All'),
   latest('Latest scan'),
+  fruits('Fruits'),
+  vegetables('Vegetables'),
+  protein('Protein'),
+  dairy('Dairy'),
+  grains('Grains'),
+  pantry('Pantry'),
   highConfidence('High confidence');
 
   const _IngredientFilter(this.label);
@@ -181,16 +187,20 @@ class _FilterChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: _IngredientFilter.values.map((filter) {
-        return ChoiceChip(
-          label: Text(filter.label),
-          selected: selectedFilter == filter,
-          onSelected: (_) => onSelected(filter),
-        );
-      }).toList(),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: _IngredientFilter.values.map((filter) {
+          return Padding(
+            padding: const EdgeInsets.only(right: 10),
+            child: ChoiceChip(
+              label: Text(filter.label),
+              selected: selectedFilter == filter,
+              onSelected: (_) => onSelected(filter),
+            ),
+          );
+        }).toList(),
+      ),
     );
   }
 }
@@ -245,6 +255,7 @@ class _IngredientCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final iconSpec = _ingredientIconSpec(ingredient.name);
 
     return Card(
       child: Padding(
@@ -258,13 +269,10 @@ class _IngredientCard extends StatelessWidget {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEDE3D7),
+                    color: iconSpec.backgroundColor,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(
-                    Icons.eco_rounded,
-                    color: Color(0xFF23433C),
-                  ),
+                  child: Icon(iconSpec.icon, color: iconSpec.color),
                 ),
                 const Spacer(),
                 Text(
@@ -470,16 +478,43 @@ List<_IngredientInventoryItem> _filterIngredients({
   required _IngredientFilter filter,
 }) {
   final normalizedQuery = query.trim().toLowerCase();
-  final sourceScans = switch (filter) {
-    _IngredientFilter.latest => scans.isEmpty ? <HistoryScan>[] : [scans.first],
-    _IngredientFilter.all || _IngredientFilter.highConfidence => scans,
-  };
+  final sourceScans = filter == _IngredientFilter.latest
+      ? scans.isEmpty
+            ? <HistoryScan>[]
+            : [scans.first]
+      : scans;
   final ingredients = _buildInventory(sourceScans).where((ingredient) {
-    final matchesQuery =
-        normalizedQuery.isEmpty || ingredient.name.contains(normalizedQuery);
+    final matchesQuery = _matchesIngredientSearch(
+      ingredient: ingredient,
+      normalizedQuery: normalizedQuery,
+    );
     final matchesFilter = switch (filter) {
       _IngredientFilter.all => true,
       _IngredientFilter.latest => true,
+      _IngredientFilter.fruits => _matchesIngredientCategory(
+        ingredient.name,
+        _fruitKeywords,
+      ),
+      _IngredientFilter.vegetables => _matchesIngredientCategory(
+        ingredient.name,
+        _vegetableKeywords,
+      ),
+      _IngredientFilter.protein => _matchesIngredientCategory(
+        ingredient.name,
+        _proteinKeywords,
+      ),
+      _IngredientFilter.dairy => _matchesIngredientCategory(
+        ingredient.name,
+        _dairyKeywords,
+      ),
+      _IngredientFilter.grains => _matchesIngredientCategory(
+        ingredient.name,
+        _grainKeywords,
+      ),
+      _IngredientFilter.pantry => _matchesIngredientCategory(
+        ingredient.name,
+        _pantryKeywords,
+      ),
       _IngredientFilter.highConfidence => ingredient.bestConfidence >= 0.75,
     };
 
@@ -497,6 +532,328 @@ List<_IngredientInventoryItem> _filterIngredients({
 
   return ingredients;
 }
+
+bool _matchesIngredientSearch({
+  required _IngredientInventoryItem ingredient,
+  required String normalizedQuery,
+}) {
+  if (normalizedQuery.isEmpty) {
+    return true;
+  }
+
+  final searchText = '${ingredient.name} ${ingredient.displayName}'
+      .toLowerCase()
+      .trim();
+  final queryTerms = normalizedQuery
+      .split(RegExp(r'\s+'))
+      .where((term) => term.isNotEmpty);
+
+  return queryTerms.every(searchText.contains);
+}
+
+bool _matchesIngredientCategory(String name, Set<String> keywords) {
+  final normalizedName = name.toLowerCase().trim();
+  final nameWords = normalizedName
+      .split(RegExp(r'[^a-z0-9]+'))
+      .where((word) => word.isNotEmpty)
+      .toSet();
+
+  return keywords.any((keyword) {
+    if (keyword.contains(' ')) {
+      return normalizedName.contains(keyword);
+    }
+
+    return nameWords.contains(keyword) ||
+        nameWords.contains('${keyword}s') ||
+        nameWords.contains('${keyword}es') ||
+        (keyword.endsWith('y') &&
+            nameWords.contains(
+              '${keyword.substring(0, keyword.length - 1)}ies',
+            ));
+  });
+}
+
+_IngredientIconSpec _ingredientIconSpec(String name) {
+  final normalizedName = name.toLowerCase().trim();
+  final nameWords = normalizedName
+      .split(RegExp(r'[^a-z0-9]+'))
+      .where((word) => word.isNotEmpty)
+      .toSet();
+
+  for (final entry in _specificIngredientIcons.entries) {
+    final keyword = entry.key;
+    if (keyword.contains(' ')) {
+      if (normalizedName.contains(keyword)) {
+        return entry.value;
+      }
+      continue;
+    }
+
+    if (nameWords.contains(keyword) ||
+        nameWords.contains('${keyword}s') ||
+        nameWords.contains('${keyword}es')) {
+      return entry.value;
+    }
+  }
+
+  if (_matchesIngredientCategory(name, _fruitKeywords)) {
+    return _IngredientIconSpec.fruit;
+  }
+  if (_matchesIngredientCategory(name, _vegetableKeywords)) {
+    return _IngredientIconSpec.vegetable;
+  }
+  if (_matchesIngredientCategory(name, _proteinKeywords)) {
+    return _IngredientIconSpec.protein;
+  }
+  if (_matchesIngredientCategory(name, _dairyKeywords)) {
+    return _IngredientIconSpec.dairy;
+  }
+  if (_matchesIngredientCategory(name, _grainKeywords)) {
+    return _IngredientIconSpec.grain;
+  }
+  if (_matchesIngredientCategory(name, _pantryKeywords)) {
+    return _IngredientIconSpec.pantry;
+  }
+
+  return _IngredientIconSpec.unknown;
+}
+
+class _IngredientIconSpec {
+  const _IngredientIconSpec({
+    required this.icon,
+    required this.backgroundColor,
+    required this.color,
+  });
+
+  static const fruit = _IngredientIconSpec(
+    icon: Icons.spa_rounded,
+    backgroundColor: Color(0xFFFFE1DE),
+    color: Color(0xFFC24232),
+  );
+
+  static const vegetable = _IngredientIconSpec(
+    icon: Icons.eco_rounded,
+    backgroundColor: Color(0xFFDCECDF),
+    color: Color(0xFF23433C),
+  );
+
+  static const protein = _IngredientIconSpec(
+    icon: Icons.restaurant_menu_rounded,
+    backgroundColor: Color(0xFFF4DFD4),
+    color: Color(0xFF9A452C),
+  );
+
+  static const dairy = _IngredientIconSpec(
+    icon: Icons.water_drop_rounded,
+    backgroundColor: Color(0xFFDDEAF6),
+    color: Color(0xFF315D7B),
+  );
+
+  static const grain = _IngredientIconSpec(
+    icon: Icons.rice_bowl_outlined,
+    backgroundColor: Color(0xFFF2E5C7),
+    color: Color(0xFF7B5721),
+  );
+
+  static const pantry = _IngredientIconSpec(
+    icon: Icons.kitchen_outlined,
+    backgroundColor: Color(0xFFE7E2D8),
+    color: Color(0xFF5F5142),
+  );
+
+  static const unknown = _IngredientIconSpec(
+    icon: Icons.eco_outlined,
+    backgroundColor: Color(0xFFEDE3D7),
+    color: Color(0xFF23433C),
+  );
+
+  final IconData icon;
+  final Color backgroundColor;
+  final Color color;
+}
+
+const _eggIcon = _IngredientIconSpec(
+  icon: Icons.egg_alt_outlined,
+  backgroundColor: Color(0xFFFFF0C8),
+  color: Color(0xFF8B6416),
+);
+
+const _fishIcon = _IngredientIconSpec(
+  icon: Icons.set_meal,
+  backgroundColor: Color(0xFFD7EBF3),
+  color: Color(0xFF2C657D),
+);
+
+const _breadIcon = _IngredientIconSpec(
+  icon: Icons.bakery_dining,
+  backgroundColor: Color(0xFFF1DEC1),
+  color: Color(0xFF7C5127),
+);
+
+const _noodleIcon = _IngredientIconSpec(
+  icon: Icons.ramen_dining,
+  backgroundColor: Color(0xFFF4DFC7),
+  color: Color(0xFF8B4E28),
+);
+
+const _cheeseIcon = _IngredientIconSpec(
+  icon: Icons.breakfast_dining,
+  backgroundColor: Color(0xFFFFE8A8),
+  color: Color(0xFF896109),
+);
+
+const _specificIngredientIcons = {
+  'egg': _eggIcon,
+  'fish': _fishIcon,
+  'salmon': _fishIcon,
+  'tuna': _fishIcon,
+  'crab': _fishIcon,
+  'shrimp': _fishIcon,
+  'prawn': _fishIcon,
+  'bread': _breadIcon,
+  'flour': _breadIcon,
+  'wheat': _breadIcon,
+  'noodle': _noodleIcon,
+  'pasta': _noodleIcon,
+  'cheese': _cheeseIcon,
+  'cheddar': _cheeseIcon,
+  'mozzarella': _cheeseIcon,
+  'parmesan': _cheeseIcon,
+};
+
+const _fruitKeywords = {
+  'apple',
+  'apricot',
+  'avocado',
+  'banana',
+  'berry',
+  'blackberry',
+  'blueberry',
+  'cherry',
+  'coconut',
+  'dragon fruit',
+  'grape',
+  'grapefruit',
+  'guava',
+  'kiwi',
+  'lemon',
+  'lime',
+  'mango',
+  'melon',
+  'orange',
+  'papaya',
+  'peach',
+  'pear',
+  'pineapple',
+  'plum',
+  'pomegranate',
+  'raspberry',
+  'strawberry',
+  'watermelon',
+};
+
+const _vegetableKeywords = {
+  'asparagus',
+  'beet',
+  'bok choy',
+  'broccoli',
+  'cabbage',
+  'carrot',
+  'cauliflower',
+  'celery',
+  'chili',
+  'corn',
+  'cucumber',
+  'eggplant',
+  'garlic',
+  'ginger',
+  'green bean',
+  'kale',
+  'lettuce',
+  'mushroom',
+  'okra',
+  'onion',
+  'pea',
+  'potato',
+  'pumpkin',
+  'radish',
+  'red pepper',
+  'spinach',
+  'squash',
+  'sweet potato',
+  'tomato',
+  'vegetable',
+  'zucchini',
+};
+
+const _proteinKeywords = {
+  'bacon',
+  'beef',
+  'chicken',
+  'crab',
+  'egg',
+  'fish',
+  'ham',
+  'lamb',
+  'meat',
+  'pork',
+  'prawn',
+  'salmon',
+  'sausage',
+  'shrimp',
+  'tempeh',
+  'tofu',
+  'tuna',
+  'turkey',
+};
+
+const _dairyKeywords = {
+  'butter',
+  'cheddar',
+  'cheese',
+  'cream',
+  'milk',
+  'mozzarella',
+  'parmesan',
+  'yogurt',
+};
+
+const _grainKeywords = {
+  'barley',
+  'bread',
+  'cereal',
+  'couscous',
+  'flour',
+  'grain',
+  'noodle',
+  'oat',
+  'pasta',
+  'quinoa',
+  'rice',
+  'tortilla',
+  'wheat',
+};
+
+const _pantryKeywords = {
+  'almond',
+  'bean',
+  'chickpea',
+  'honey',
+  'jam',
+  'ketchup',
+  'lentil',
+  'mayonnaise',
+  'mustard',
+  'nut',
+  'oil',
+  'sauce',
+  'salt',
+  'spice',
+  'sugar',
+  'syrup',
+  'vinegar',
+  'walnut',
+};
 
 List<_IngredientInventoryItem> _buildInventory(List<HistoryScan> scans) {
   final byName = <String, _MutableIngredientInventoryItem>{};
