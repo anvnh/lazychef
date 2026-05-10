@@ -40,9 +40,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     }
 
     if (password != confirmPassword) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Passwords do not match')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Passwords do not match')));
       return;
     }
 
@@ -51,9 +51,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     if (mounted) {
       final authState = ref.read(authControllerProvider);
       if (authState.hasError) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(authState.error.toString())),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(authState.error.toString())));
       } else {
         Navigator.pushNamedAndRemoveUntil(
           context,
@@ -146,31 +146,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           ),
                   ],
                 ),
-              ),
-            ),
-            const SizedBox(height: 18),
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                color: const Color(0xFF23433C),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.tips_and_updates_outlined,
-                    color: Colors.white,
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Text(
-                      'Profiles stay separate from the recipe engine, so the app can personalize without exposing database access to the client.',
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
               ),
             ),
           ],

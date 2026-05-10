@@ -5,6 +5,8 @@ class AppButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.icon,
+    this.backgroundColor,
+    this.foregroundColor,
     super.key,
   }) : _variant = _AppButtonVariant.primary;
 
@@ -12,12 +14,16 @@ class AppButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.icon,
+    this.backgroundColor,
+    this.foregroundColor,
     super.key,
   }) : _variant = _AppButtonVariant.secondary;
 
   final String label;
   final VoidCallback onPressed;
   final IconData? icon;
+  final Color? backgroundColor;
+  final Color? foregroundColor;
   final _AppButtonVariant _variant;
 
   @override
@@ -29,10 +35,14 @@ class AppButton extends StatelessWidget {
       width: double.infinity,
       child: FilledButton(
         style: FilledButton.styleFrom(
-          backgroundColor: isPrimary
-              ? colorScheme.secondary
-              : Colors.white.withValues(alpha: 0.75),
-          foregroundColor: isPrimary ? Colors.white : colorScheme.primary,
+          backgroundColor:
+              backgroundColor ??
+              (isPrimary
+                  ? colorScheme.secondary
+                  : Colors.white.withValues(alpha: 0.75)),
+          foregroundColor:
+              foregroundColor ??
+              (isPrimary ? Colors.white : colorScheme.primary),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),

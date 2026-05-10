@@ -130,6 +130,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         : AppButton.primary(
                             label: 'Sign in',
                             icon: Icons.arrow_forward_rounded,
+                            backgroundColor: const Color(0xFFFFD166),
+                            foregroundColor: const Color(0xFF2C3236),
                             onPressed: _onLoginPressed,
                           ),
                     const SizedBox(height: 12),
