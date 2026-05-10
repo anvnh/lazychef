@@ -62,6 +62,18 @@ class HistoryIngredient {
   final String name;
   final double? confidence;
 
+  String get confidenceLabel {
+    if (confidence == null) {
+      return 'Man.';
+    }
+
+    if (confidence! <= 0) {
+      return '';
+    }
+
+    return '${(confidence! * 100).round()}%';
+  }
+
   String get displayName {
     if (name.isEmpty) {
       return 'Ingredient';

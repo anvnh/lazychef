@@ -184,7 +184,7 @@ class _HistoryScanCard extends StatelessWidget {
                     .map(
                       (ingredient) => Chip(
                         label: Text(
-                          '${ingredient.displayName} ${_confidenceLabel(ingredient.confidence)}',
+                          '${ingredient.displayName} ${ingredient.confidenceLabel}',
                         ),
                       ),
                     )
@@ -450,18 +450,6 @@ String _timeLabel(DateTime? date) {
   final period = date.hour >= 12 ? 'PM' : 'AM';
 
   return '$hour:${_twoDigits(date.minute)} $period';
-}
-
-String _confidenceLabel(double? confidence) {
-  if (confidence == null) {
-    return 'Man.';
-  }
-
-  if (confidence <= 0) {
-    return '';
-  }
-
-  return '${(confidence * 100).round()}%';
 }
 
 String _twoDigits(int value) => value.toString().padLeft(2, '0');

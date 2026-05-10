@@ -10,10 +10,11 @@ class RecipeCollectionItem {
     required this.instructions,
     required this.cookingTime,
     required this.difficulty,
+    required List<HistoryIngredient> availableIngredients,
     required this.missingIngredients,
     required this.imageUrl,
     required this.generatedAt,
-  });
+  }) : _availableIngredients = availableIngredients;
 
   factory RecipeCollectionItem.fromSuggested(SuggestedRecipe recipe) {
     final scanId = recipe.scanId.trim();
@@ -31,6 +32,7 @@ class RecipeCollectionItem {
       instructions: recipe.instructions,
       cookingTime: recipe.cookingTime,
       difficulty: recipe.difficulty,
+      availableIngredients: const [],
       missingIngredients: recipe.missingIngredients,
       imageUrl: recipe.imageUrl,
       generatedAt: null,
@@ -55,6 +57,7 @@ class RecipeCollectionItem {
       instructions: recipe.instructions,
       cookingTime: recipe.cookingTime,
       difficulty: recipe.difficulty,
+      availableIngredients: scan.detectedIngredients,
       missingIngredients: recipe.missingIngredients,
       imageUrl: recipe.imageUrl,
       generatedAt: scan.createdDate,
@@ -70,6 +73,7 @@ class RecipeCollectionItem {
       instructions: json['instructions'] as String? ?? '',
       cookingTime: json['cookingTime'] as String? ?? '',
       difficulty: json['difficulty'] as String? ?? 'easy',
+      availableIngredients: _ingredientList(json['availableIngredients']),
       missingIngredients: _stringList(json['missingIngredients']),
       imageUrl: (json['imageUrl'] ?? json['image_url']) as String?,
       generatedAt: DateTime.tryParse(json['generatedAt'] as String? ?? ''),
@@ -83,9 +87,14 @@ class RecipeCollectionItem {
   final String instructions;
   final String cookingTime;
   final String difficulty;
+  final List<HistoryIngredient>? _availableIngredients;
   final List<String> missingIngredients;
   final String? imageUrl;
   final DateTime? generatedAt;
+
+  List<HistoryIngredient> get availableIngredients {
+    return _availableIngredients ?? const [];
+  }
 
   String get difficultyLabel {
     if (difficulty.isEmpty) {
@@ -104,6 +113,14 @@ class RecipeCollectionItem {
       'instructions': instructions,
       'cookingTime': cookingTime,
       'difficulty': difficulty,
+      'availableIngredients': availableIngredients
+          .map(
+            (ingredient) => {
+              'name': ingredient.name,
+              'confidence': ingredient.confidence,
+            },
+          )
+          .toList(),
       'missingIngredients': missingIngredients,
       'imageUrl': imageUrl,
       'generatedAt': generatedAt?.toIso8601String(),
@@ -137,6 +154,18 @@ String _recipeId({
 List<String> _stringList(Object? value) {
   if (value is List) {
     return value.whereType<String>().toList();
+  }
+
+  return const [];
+}
+
+List<HistoryIngredient> _ingredientList(Object? value) {
+  if (value is List) {
+    return value
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .map(HistoryIngredient.fromJson)
+        .toList();
   }
 
   return const [];

@@ -666,6 +666,45 @@ class _EmptyRecipeCollection extends StatelessWidget {
   }
 }
 
+class _RecipeCollectionIngredientChip extends StatelessWidget {
+  const _RecipeCollectionIngredientChip({
+    required this.label,
+    required this.meta,
+  });
+
+  final String label;
+  final String meta;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+          if (meta.isNotEmpty) ...[
+            const SizedBox(width: 8),
+            Text(
+              meta,
+              style: TextStyle(
+                color: Colors.grey.shade600,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 void _showRecipeCollectionSheet({
   required BuildContext context,
   required String title,
@@ -811,6 +850,37 @@ void _showRecipeDetails(
                   const SizedBox(height: 8),
                   Text(recipe.description, textAlign: TextAlign.center),
                   const SizedBox(height: 24),
+                  if (recipe.availableIngredients.isNotEmpty) ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'All ingredients',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        Text(
+                          '${recipe.availableIngredients.length} items',
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: recipe.availableIngredients.map((ingredient) {
+                        return _RecipeCollectionIngredientChip(
+                          label: ingredient.displayName,
+                          meta: ingredient.confidenceLabel,
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
                   if (recipe.missingIngredients.isNotEmpty) ...[
                     Center(
                       child: Text(
@@ -901,6 +971,10 @@ String _recipeMetaLabel(RecipeCollectionItem recipe) {
 
   if (recipe.missingIngredients.isNotEmpty) {
     parts.add('${recipe.missingIngredients.length} missing');
+  }
+
+  if (recipe.availableIngredients.isNotEmpty) {
+    parts.add('${recipe.availableIngredients.length} ingredients');
   }
 
   return parts.join(' | ');
