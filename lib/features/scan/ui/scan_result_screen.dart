@@ -288,7 +288,7 @@ class _UploadedScanContentState extends ConsumerState<_UploadedScanContent> {
           icon: Icons.cloud_done_rounded,
         ),
         const SizedBox(height: 16),
-        _UploadDetailsCard(result: widget.result),
+        // _UploadDetailsCard(result: widget.result),
         const SizedBox(height: 28),
         SectionTitle(
           eyebrow: 'Detected ingredients',
@@ -512,46 +512,46 @@ class _ScanSummaryCard extends StatelessWidget {
   }
 }
 
-class _UploadDetailsCard extends StatelessWidget {
-  const _UploadDetailsCard({required this.result});
+// class _UploadDetailsCard extends StatelessWidget {
+//   const _UploadDetailsCard({required this.result});
 
-  final ScanUploadResult result;
+//   final ScanUploadResult result;
 
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Cloudinary upload',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              result.image.secureUrl,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF6A5D51)),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _metadataPill(result.image.format.toUpperCase()),
-                _metadataPill('${result.image.width} x ${result.image.height}'),
-                _metadataPill('${(result.image.bytes / 1024).round()} KB'),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+//   @override
+//   Widget build(BuildContext context) {
+//     return Card(
+//       child: Padding(
+//         padding: const EdgeInsets.all(18),
+//         child: Column(
+//           crossAxisAlignment: CrossAxisAlignment.start,
+//           children: [
+//             Text(
+//               'Cloudinary upload',
+//               style: Theme.of(context).textTheme.titleMedium,
+//             ),
+//             const SizedBox(height: 10),
+//             Text(
+//               result.image.secureUrl,
+//               style: Theme.of(
+//                 context,
+//               ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF6A5D51)),
+//             ),
+//             const SizedBox(height: 12),
+//             Wrap(
+//               spacing: 8,
+//               runSpacing: 8,
+//               children: [
+//                 _metadataPill(result.image.format.toUpperCase()),
+//                 _metadataPill('${result.image.width} x ${result.image.height}'),
+//                 _metadataPill('${(result.image.bytes / 1024).round()} KB'),
+//               ],
+//             ),
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+// }
 
 class _EmptyIngredientsCard extends StatelessWidget {
   const _EmptyIngredientsCard({required this.analysis});
