@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lazychef/core/router/app_router.dart';
+import 'package:lazychef/core/theme/app_theme.dart';
 import 'package:lazychef/core/widgets/app_bottom_bar.dart';
 import 'package:lazychef/core/widgets/app_button.dart';
 import 'package:lazychef/core/widgets/lazychef_scaffold.dart';
@@ -64,18 +65,17 @@ class _IngredientsScreenState extends ConsumerState<IngredientsScreen> {
             children: [
               Row(
                 children: [
-                  IconButton.filledTonal(
-                    tooltip: 'Back',
-                    onPressed: () {
-                      Navigator.pushReplacementNamed(context, AppRouter.home);
-                    },
-                    icon: const Icon(Icons.arrow_back_rounded),
-                  ),
+                  
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Ingredients',
-                      style: Theme.of(context).textTheme.displaySmall,
+                      'My ingredients',
+                      style: TextStyle(
+                  fontSize: 25,
+                  fontWeight: FontWeight.w700,
+                  height: 1.3,
+                  color: Color(0xFF2C3236),
+                ),
                     ),
                   ),
                   IconButton.filledTonal(
@@ -94,11 +94,17 @@ class _IngredientsScreenState extends ConsumerState<IngredientsScreen> {
                 ],
               ),
               const SizedBox(height: 16),
-              const SectionTitle(
-                eyebrow: 'My fridge',
-                title: 'Ingredients from saved scans',
-                subtitle:
-                    'This inventory is built from scans saved under the current account.',
+              
+               Padding(
+                padding: const EdgeInsets.only(left: 15, right: 10),
+                child: Text(
+                  'INGREDIENTS FROM SAVED SCANS',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: const Color(0xFFC85D3B),
+                    letterSpacing: 0,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
               ),
               const SizedBox(height: 18),
               _SearchField(controller: _searchController),

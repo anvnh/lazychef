@@ -501,11 +501,12 @@ class _SuggestedRecipeCard extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                const SizedBox(height: 20),
                 Container(
-                  width: 48,
-                  height: 48,
+                  width: 100,
+                  height: 100,
                   decoration: const BoxDecoration(
                     color: Colors.white,
                     shape: BoxShape.circle,
@@ -524,17 +525,17 @@ class _SuggestedRecipeCard extends StatelessWidget {
                     height: 1.3,
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  recipe.description,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.grey.shade800,
-                    fontSize: 12,
-                    height: 1.35,
-                  ),
-                ),
+                const SizedBox(height: 10),
+                // Text(
+                //   recipe.description,
+                //   maxLines: 2,
+                //   overflow: TextOverflow.ellipsis,
+                //   style: TextStyle(
+                //     color: Colors.grey.shade800,
+                //     fontSize: 12,
+                //     height: 1.35,
+                //   ),
+                // ),
               ],
             ),
             Wrap(
@@ -581,7 +582,7 @@ class _RecipePill extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             label,
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
           ),
         ],
       ),
@@ -713,60 +714,282 @@ class _NoSuggestedRecipes extends StatelessWidget {
   }
 }
 
+// Hàm hỗ trợ vẽ UI cho từng nguyên liệu
+// Hàm hỗ trợ vẽ UI cho từng nguyên liệu (Đã được phóng to)
+Widget _buildIngredientItem(String name, String amount, Color color, IconData icon) {
+  return Container(
+    width: 100, // Tăng độ rộng tổng thể (cũ là 80)
+    margin: const EdgeInsets.only(bottom: 8),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 80, // Tăng chiều rộng ô vuông (cũ là 60)
+          height: 80, // Tăng chiều cao ô vuông (cũ là 60)
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(20), // Bo góc to hơn chút cho cân đối
+          ),
+          child: Icon(icon, color: Colors.black54, size: 36), // Tăng size icon (cũ là 28)
+        ),
+        const SizedBox(height: 10),
+        Text(
+          name,
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), // Tăng size chữ
+        ),
+        const SizedBox(height: 4),
+        Text(
+          amount,
+          style: TextStyle(color: Colors.grey.shade600, fontSize: 13), // Tăng size chữ
+        ),
+      ],
+    ),
+  );
+}
+
 void _showSuggestedRecipe(BuildContext context, SuggestedRecipe recipe) {
+  // Dữ liệu mock (bạn thay thế bằng dữ liệu thực tế nếu có)
+  final List<Map<String, dynamic>> allIngredients = [
+    {'name': 'Tomato', 'amount': '2 pcs', 'color': const Color(0xFFFFCDD2), 'icon': Icons.local_pizza},
+    {'name': 'Beef', 'amount': '200g', 'color': const Color(0xFFD7CCC8), 'icon': Icons.set_meal},
+    {'name': 'Onion', 'amount': '1 pc', 'color': const Color(0xFFFFF9C4), 'icon': Icons.eco},
+  ];
+
   showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
+    backgroundColor: const Color(0xFFF7F8FA),
     builder: (context) {
-      return DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.72,
-        minChildSize: 0.45,
-        maxChildSize: 0.92,
-        builder: (context, scrollController) {
-          return ListView(
-            controller: scrollController,
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
-            children: [
-              Text(
-                recipe.title,
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 8),
-              Text(recipe.description),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
+      // Dùng StatefulBuilder để quản lý state (toggle xem nguyên liệu) bên trong BottomSheet
+      return StatefulBuilder(
+        builder: (BuildContext context, StateSetter setState) {
+          bool showAllIngredients = false;
+
+          return DraggableScrollableSheet(
+            expand: false,
+            initialChildSize: 0.72,
+            minChildSize: 0.45,
+            maxChildSize: 0.92,
+            builder: (context, scrollController) {
+              return ListView(
+                controller: scrollController,
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
                 children: [
-                  Chip(label: Text(recipe.cookingTime)),
-                  Chip(label: Text(recipe.difficultyLabel)),
+                  // Hình ảnh recipe
+                  Center(
+                    child: Container(
+                      width: 180,
+                      height: 180,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 24,
+                            offset: const Offset(0, 12),
+                          ),
+                        ],
+                        image: const DecorationImage(
+                          image: NetworkImage(
+                            'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?q=80&w=500&auto=format&fit=crop',
+                          ),
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Tiêu đề
+                  Center(
+                    child: Text(
+                      recipe.title,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w600,
+                        height: 1.3,
+                        color: Color(0xFF2C3236),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Stats (Thời gian và độ khó)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.access_time_rounded, color: Colors.grey, size: 25),
+                          const SizedBox(height: 8),
+                          Text(
+                            recipe.cookingTime,
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 48),
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.speed_rounded, color: Colors.grey, size: 25),
+                          const SizedBox(height: 8),
+                          Text(
+                            recipe.difficultyLabel,
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 24),
+                    child: Divider(
+                      height: 32,
+                      thickness: 1,
+                      color: Color.fromARGB(255, 226, 226, 226),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  
+                  // Mô tả
+                  Text(
+                    'Description:',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    recipe.description,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Danh sách nguyên liệu
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'All ingredients',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF2C3236),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          // Gọi setState của StatefulBuilder để rebuild lại BottomSheet
+                          setState(() {
+                            showAllIngredients = !showAllIngredients;
+                          });
+                        },
+                        child: Text(
+                          showAllIngredients ? 'Show less' : 'See all',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFFFF7E5F),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Lưới nguyên liệu
+                  // Lưới nguyên liệu
+                  showAllIngredients
+                      ? Wrap(
+                          spacing: 16,
+                          runSpacing: 24,
+                          children: allIngredients.map((ing) {
+                            return _buildIngredientItem(
+                              ing['name'] as String,
+                              ing['amount'] as String,
+                              ing['color'] as Color,
+                              ing['icon'] as IconData,
+                            );
+                          }).toList(),
+                        )
+                      : SizedBox(
+                          height: 160, 
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            clipBehavior: Clip.none,
+                            itemCount: allIngredients.length,
+                            itemBuilder: (context, index) {
+                              final ing = allIngredients[index];
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 16.0),
+                                child: _buildIngredientItem(
+                                  ing['name'] as String,
+                                  ing['amount'] as String,
+                                  ing['color'] as Color,
+                                  ing['icon'] as IconData,
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                  const SizedBox(height: 30),
+
+                  // Nguyên liệu bị thiếu
+                  if (recipe.missingIngredients.isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    Center(
+                      child: Text(
+                        'Missing ingredients',
+                        style: Theme.of(context).textTheme.titleMedium,
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Center(
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        alignment: WrapAlignment.center,
+                        children: recipe.missingIngredients
+                            .map((ingredient) => Chip(label: Text(ingredient)))
+                            .toList(),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 20),
+
+                  // Hướng dẫn
+                  Center(
+                    child: Text(
+                      'Instructions',
+                      style: Theme.of(context).textTheme.titleMedium,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Center(
+                    child: Text(
+                      recipe.instructions,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
                 ],
-              ),
-              if (recipe.missingIngredients.isNotEmpty) ...[
-                const SizedBox(height: 20),
-                Text(
-                  'Missing ingredients',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: recipe.missingIngredients
-                      .map((ingredient) => Chip(label: Text(ingredient)))
-                      .toList(),
-                ),
-              ],
-              const SizedBox(height: 20),
-              Text(
-                'Instructions',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              Text(recipe.instructions),
-            ],
+              );
+            },
           );
         },
       );
@@ -785,50 +1008,3 @@ Color _suggestedRecipeColor(int index) {
 
   return colors[index % colors.length];
 }
-
-// class _RecipeBottomBar extends StatelessWidget {
-//   const _RecipeBottomBar();
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Container(
-//       decoration: BoxDecoration(
-//         color: Theme.of(context).colorScheme.primary,
-//         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-//       ),
-//       child: SafeArea(
-//         top: false,
-//         child: Padding(
-//           padding: const EdgeInsets.symmetric(vertical: 12),
-//           child: Row(
-//             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-//             children: [
-//               _buildNavItem(Icons.explore_outlined, 'Discover', true),
-//               _buildNavItem(Icons.shopping_cart_outlined, 'Ingredients', false),
-//               _buildNavItem(Icons.person_outline, 'Profile', false),
-//             ],
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-
-//   Widget _buildNavItem(IconData icon, String label, bool isSelected) {
-//     final color = isSelected ? Colors.white : Colors.white60;
-//     return Column(
-//       mainAxisSize: MainAxisSize.min,
-//       children: [
-//         Icon(icon, color: color, size: 26),
-//         const SizedBox(height: 4),
-//         Text(
-//           label,
-//           style: TextStyle(
-//             color: color,
-//             fontSize: 12,
-//             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-//           ),
-//         ),
-//       ],
-//     );
-//   }
-// }
