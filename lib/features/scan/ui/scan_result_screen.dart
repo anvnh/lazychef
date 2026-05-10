@@ -10,7 +10,6 @@ import 'package:lazychef/core/widgets/section_title.dart';
 import 'package:lazychef/features/scan/models/scan_image_selection.dart';
 import 'package:lazychef/features/scan/models/scan_upload_result.dart';
 import 'package:lazychef/features/scan/providers/scan_provider.dart';
-import 'package:lazychef/features/scan/ui/demo_content.dart';
 
 class ScanResultScreen extends ConsumerWidget {
   const ScanResultScreen({super.key, this.selection});
@@ -19,9 +18,10 @@ class ScanResultScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final scanUpload = selection == null
+    final selectedImage = selection;
+    final scanUpload = selectedImage == null
         ? null
-        : ref.watch(scanUploadProvider(selection!));
+        : ref.watch(scanUploadProvider(selectedImage));
 
     return LazyChefScaffold(
       child: SingleChildScrollView(
@@ -53,19 +53,19 @@ class ScanResultScreen extends ConsumerWidget {
                   'Detected ingredients are saved to your account after upload.',
             ),
             const SizedBox(height: 18),
-            if (selection != null) ...[
-              _SelectedImagePreview(selection: selection!),
+            if (selectedImage != null) ...[
+              _SelectedImagePreview(selection: selectedImage),
               const SizedBox(height: 18),
             ],
-            if (scanUpload == null)
-              const _DemoScanContent()
+            if (selectedImage == null)
+              const _NoScanContent()
             else
-              scanUpload.when(
+              scanUpload!.when(
                 loading: () => const _ScanUploadLoading(),
                 error: (error, _) => _ScanUploadError(
                   error: error,
                   onRetry: () {
-                    ref.invalidate(scanUploadProvider(selection!));
+                    ref.invalidate(scanUploadProvider(selectedImage));
                   },
                 ),
                 data: (result) => _UploadedScanContent(result: result),
@@ -96,8 +96,8 @@ class ScanResultScreen extends ConsumerWidget {
   }
 }
 
-class _DemoScanContent extends StatelessWidget {
-  const _DemoScanContent();
+class _NoScanContent extends StatelessWidget {
+  const _NoScanContent();
 
   @override
   Widget build(BuildContext context) {
@@ -105,34 +105,23 @@ class _DemoScanContent extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const _ScanSummaryCard(
-          eyebrow: '5 ingredients detected',
-          title: 'Two strong dinner options are ready from this shelf.',
-          icon: Icons.soup_kitchen_rounded,
+          eyebrow: 'No image selected',
+          title: 'Choose a fridge photo before viewing scan results.',
+          icon: Icons.add_photo_alternate_outlined,
+        ),
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Text(
+              'Start a new scan from the home screen to upload an image and run ingredient detection.',
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF6A5D51)),
+            ),
+          ),
         ),
         const SizedBox(height: 28),
-        const SectionTitle(
-          eyebrow: 'Detected ingredients',
-          title: 'Confidence is shown directly',
-        ),
-        const SizedBox(height: 14),
-        ...demoIngredients.map(
-          (ingredient) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _IngredientTile(ingredient: ingredient),
-          ),
-        ),
-        const SizedBox(height: 18),
-        const SectionTitle(
-          eyebrow: 'Recipe suggestions',
-          title: 'Use what is already there',
-        ),
-        const SizedBox(height: 14),
-        ...demoRecipes.map(
-          (recipe) => Padding(
-            padding: const EdgeInsets.only(bottom: 14),
-            child: _RecipeCard(recipe: recipe),
-          ),
-        ),
       ],
     );
   }
@@ -546,129 +535,6 @@ class _DetectedIngredientTile extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class _IngredientTile extends StatelessWidget {
-  const _IngredientTile({required this.ingredient});
-
-  final IngredientInsight ingredient;
-
-  @override
-  Widget build(BuildContext context) {
-    final percentage = (ingredient.confidence * 100).round();
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    ingredient.name,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-                Text(
-                  '$percentage%',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: const Color(0xFFC85D3B),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: LinearProgressIndicator(
-                value: ingredient.confidence,
-                minHeight: 10,
-                backgroundColor: const Color(0xFFEADBC9),
-                color: const Color(0xFF23433C),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RecipeCard extends StatelessWidget {
-  const _RecipeCard({required this.recipe});
-
-  final RecipePreview recipe;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _pill(recipe.duration),
-                _pill(recipe.difficulty),
-                ...recipe.ingredients.take(3).map(_pill),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text(recipe.title, style: textTheme.titleLarge),
-            const SizedBox(height: 8),
-            Text(
-              recipe.description,
-              style: textTheme.bodyMedium?.copyWith(
-                color: const Color(0xFF6A5D51),
-              ),
-            ),
-            const SizedBox(height: 16),
-            ...recipe.steps.asMap().entries.map(
-              (entry) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF23433C),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        '${entry.key + 1}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(entry.value, style: textTheme.bodyMedium),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _pill(String label) {
-    return _metadataPill(label);
   }
 }
 
