@@ -6,6 +6,7 @@ import { checkDatabaseConnection, ensureDatabaseSchema } from "./db/client.js";
 import { authRoutes } from "./routes/auth.routes.js";
 import { recipesRoutes } from "./routes/recipes.routes.js";
 import { scansRoutes } from "./routes/scans.routes.js";
+import { acceptCloudflareVisionModelAgreement } from "./vision/vision.service.js";
 
 const app = new Hono();
 
@@ -50,6 +51,9 @@ const port = Number(process.env.PORT ?? 3000);
 
 await ensureDatabaseSchema().catch((error) => {
   console.error("Database schema check failed", error);
+});
+await acceptCloudflareVisionModelAgreement().catch((error) => {
+  console.error("Cloudflare model agreement check failed", error);
 });
 
 serve({

@@ -9,7 +9,8 @@ import { queueRecipeSuggestionsForScan } from "../recipes/recipe.service.js";
 import { listUserScanHistory, saveScanResult } from "../scans/scan.service.js";
 import type { UploadableImage } from "../scans/uploadable-image.js";
 import {
-  analyzeScanImage,
+  analyzeScanImageUrl,
+  cloudflareVisionModel,
   VisionAnalysisError,
   type VisionAnalysisResult,
 } from "../vision/vision.service.js";
@@ -56,16 +57,12 @@ scansRoutes.post("/upload", async (context) => {
 
   try {
     const user = context.get("user");
-    const uploadPromise = uploadImageToCloudinary(image, user.id);
-    const analysisPromise = analyzeScanImage(image);
-    const [uploadResult, analysisResult] = await Promise.allSettled([
-      uploadPromise,
-      analysisPromise,
-    ]);
-
-    if (uploadResult.status === "rejected") {
-      return handleScanError(context, uploadResult.reason);
-    }
+    const uploadResult = await uploadImageToCloudinary(image, user.id);
+    const imageUrl = uploadResult.secureUrl || uploadResult.imageUrl;
+    const analysisResult = await analyzeScanImageUrl(imageUrl, image).then(
+      (analysis) => ({ status: "fulfilled" as const, value: analysis }),
+      (reason: unknown) => ({ status: "rejected" as const, reason }),
+    );
 
     const analysis =
       analysisResult.status === "fulfilled"
@@ -74,7 +71,7 @@ scansRoutes.post("/upload", async (context) => {
 
     const scan = await saveScanResult({
       userId: user.id,
-      image: uploadResult.value,
+      image: uploadResult,
       detectedIngredients: analysis.detectedIngredients,
     });
 
@@ -83,7 +80,7 @@ scansRoutes.post("/upload", async (context) => {
       analysis.detectedIngredients.map((ingredient) => ingredient.name),
     );
 
-    return context.json({ scan, image: uploadResult.value, analysis }, 201);
+    return context.json({ scan, image: uploadResult, analysis }, 201);
   } catch (error) {
     return handleScanError(context, error);
   }
@@ -100,14 +97,11 @@ function isUploadableImage(value: unknown): value is UploadableImage {
 
 function toFailedAnalysis(error: unknown): VisionAnalysisResult {
   const message =
-    error instanceof Error ? error.message : "Gemini image analysis failed";
+    error instanceof Error ? error.message : "Cloudflare image analysis failed";
 
   return {
-    provider: "gemini",
-    model: (process.env.GEMINI_MODEL || "gemini-2.5-flash").replace(
-      /^models\//,
-      "",
-    ),
+    provider: "cloudflare",
+    model: cloudflareVisionModel,
     status: "failed",
     detectedIngredients: [],
     message,

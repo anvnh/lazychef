@@ -1,8 +1,7 @@
 import type { UploadableImage } from "../scans/uploadable-image.js";
-import { readOptionalEnv, readRequiredEnv } from "../config/env.js";
+import { readRequiredEnv } from "../config/env.js";
 
-const defaultGeminiModel = "gemini-2.5-flash";
-const geminiApiBaseUrl = "https://generativelanguage.googleapis.com/v1beta";
+export const cloudflareVisionModel = "@cf/meta/llama-3.2-11b-vision-instruct";
 
 export type DetectedIngredient = {
   name: string;
@@ -10,31 +9,23 @@ export type DetectedIngredient = {
 };
 
 export type VisionAnalysisResult = {
-  provider: "gemini";
+  provider: "cloudflare";
   model: string;
   status: "completed" | "failed";
   detectedIngredients: DetectedIngredient[];
   message: string;
 };
 
-type GeminiIngredientResponse = {
-  ingredients?: Array<{
-    name?: unknown;
-    confidence?: unknown;
+type CloudflareAiResponse = {
+  success?: boolean;
+  result?: unknown;
+  errors?: Array<{
+    message?: string;
   }>;
 };
 
-type GeminiGenerateContentResponse = {
-  candidates?: Array<{
-    content?: {
-      parts?: Array<{
-        text?: string;
-      }>;
-    };
-  }>;
-  error?: {
-    message?: string;
-  };
+type CloudflareIngredientResponse = {
+  ingredients?: unknown;
 };
 
 export class VisionAnalysisError extends Error {
@@ -47,118 +38,284 @@ export class VisionAnalysisError extends Error {
   }
 }
 
-export async function analyzeScanImage(
-  image: UploadableImage,
-): Promise<VisionAnalysisResult> {
-  const model = normalizeModelName(
-    readOptionalEnv("GEMINI_MODEL", defaultGeminiModel),
-  );
-  const imageBase64 = Buffer.from(await image.arrayBuffer()).toString("base64");
-  const response = await fetch(
-    `${geminiApiBaseUrl}/models/${model}:generateContent`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": readRequiredEnv("GEMINI_API_KEY"),
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: "user",
-            parts: [
-              {
-                inline_data: {
-                  mime_type: image.type || "image/jpeg",
-                  data: imageBase64,
-                },
-              },
-              {
-                text:
-                  "Identify visible food ingredients in this image. " +
-                  "Return JSON only with this exact shape: " +
-                  '{"ingredients":[{"name":"ingredient name","confidence":0.0}]}. ' +
-                  "Use lowercase common ingredient names. " +
-                  "Use confidence values from 0 to 1. " +
-                  "Only include ingredients you can visually infer.",
-              },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.2,
-          responseMimeType: "application/json",
-        },
-      }),
-    },
-  );
-  const payload = (await response
-    .json()
-    .catch(() => null)) as GeminiGenerateContentResponse | null;
+export async function acceptCloudflareVisionModelAgreement(): Promise<void> {
+  const response = await runCloudflareVisionModel({ prompt: "agree" });
 
   if (!response.ok) {
-    throw new VisionAnalysisError(
-      payload?.error?.message ?? "Gemini image analysis failed",
+    const payload = (await response
+      .json()
+      .catch(() => null)) as CloudflareAiResponse | null;
+    console.error(
+      "Cloudflare model agreement call failed",
+      readCloudflareError(payload) ?? response.statusText,
     );
   }
+}
 
-  const text = payload?.candidates?.[0]?.content?.parts
-    ?.map((part) => part.text ?? "")
-    .join("")
-    .trim();
+export async function analyzeScanImageUrl(
+  imageUrl: string,
+  fallbackImage?: UploadableImage,
+): Promise<VisionAnalysisResult> {
+  const imageDataUri = await readImageDataUri(imageUrl, fallbackImage);
+  let payload = await requestCloudflareAnalysis(imageDataUri);
+  const errorMessage = readCloudflareError(payload);
 
-  if (!text) {
-    throw new VisionAnalysisError("Gemini returned an empty analysis response");
+  if (errorMessage && isModelAgreementError(errorMessage)) {
+    await acceptCloudflareVisionModelAgreement();
+    payload = await requestCloudflareAnalysis(imageDataUri);
   }
 
-  const parsed = parseGeminiIngredientResponse(text);
-  const detectedIngredients = normalizeIngredients(parsed.ingredients ?? []);
+  const finalErrorMessage = readCloudflareError(payload);
+  if (finalErrorMessage) {
+    throw new VisionAnalysisError(finalErrorMessage);
+  }
+
+  const parsed = extractCloudflareIngredientResponse(payload?.result);
+  const detectedIngredients = normalizeIngredients(parsed.ingredients);
 
   return {
-    provider: "gemini",
-    model,
+    provider: "cloudflare",
+    model: cloudflareVisionModel,
     status: "completed",
     detectedIngredients,
-    message: `Gemini detected ${detectedIngredients.length} visible ingredients.`,
+    message: `Cloudflare detected ${detectedIngredients.length} visible ingredients.`,
   };
 }
 
-function parseGeminiIngredientResponse(text: string): GeminiIngredientResponse {
+async function requestCloudflareAnalysis(
+  imageDataUri: string,
+): Promise<CloudflareAiResponse | null> {
+  const response = await runCloudflareVisionModel({
+    prompt:
+      "Analyze this image and return ONLY a JSON object with this exact structure, no markdown, no explanation: " +
+      '{"ingredients": ["ingredient1", "ingredient2"]}',
+    image: imageDataUri,
+    max_tokens: 256,
+    temperature: 0,
+  });
+  const payload = (await response
+    .json()
+    .catch(() => null)) as CloudflareAiResponse | null;
+
+  if (!response.ok && payload) {
+    return payload;
+  }
+
+  return payload;
+}
+
+async function runCloudflareVisionModel(body: unknown): Promise<Response> {
+  return fetch(
+    `https://api.cloudflare.com/client/v4/accounts/${readRequiredEnv(
+      "CLOUDFLARE_ACCOUNT_ID",
+    )}/ai/run/${cloudflareVisionModel}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${readRequiredEnv("CLOUDFLARE_AUTH_TOKEN")}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+function readCloudflareError(payload: CloudflareAiResponse | null): string {
+  if (!payload) {
+    return "Cloudflare image analysis failed";
+  }
+
+  if (payload.success === false) {
+    return payload.errors?.[0]?.message ?? "Cloudflare image analysis failed";
+  }
+
+  return "";
+}
+
+function isModelAgreementError(message: string): boolean {
+  return message.toLowerCase().includes("model agreement");
+}
+
+async function readImageDataUri(
+  imageUrl: string,
+  fallbackImage?: UploadableImage,
+): Promise<string> {
   try {
-    return JSON.parse(text) as GeminiIngredientResponse;
+    return await fetchImageAsDataUri(imageUrl);
+  } catch (error) {
+    if (!fallbackImage) {
+      throw error;
+    }
+
+    return uploadableImageAsDataUri(fallbackImage);
+  }
+}
+
+async function fetchImageAsDataUri(imageUrl: string): Promise<string> {
+  let lastStatus = 0;
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const response = await fetch(imageUrl);
+    lastStatus = response.status;
+
+    if (!response.ok) {
+      await delay(300 * (attempt + 1));
+      continue;
+    }
+
+    const contentType = normalizeImageContentType(
+      response.headers.get("content-type"),
+    );
+    const imageBase64 = Buffer.from(await response.arrayBuffer()).toString(
+      "base64",
+    );
+
+    return `data:${contentType};base64,${imageBase64}`;
+  }
+
+  throw new VisionAnalysisError(
+    `Could not fetch uploaded image from Cloudinary (${lastStatus || "unknown status"})`,
+    502,
+  );
+}
+
+async function uploadableImageAsDataUri(
+  image: UploadableImage,
+): Promise<string> {
+  return `data:${normalizeImageContentType(image.type)};base64,${Buffer.from(
+    await image.arrayBuffer(),
+  ).toString("base64")}`;
+}
+
+function normalizeImageContentType(contentType: string | null): string {
+  if (!contentType) {
+    return "image/jpeg";
+  }
+
+  const [type] = contentType.split(";");
+  const normalized = type.trim().toLowerCase();
+
+  if (!normalized.startsWith("image/")) {
+    return "image/jpeg";
+  }
+
+  return normalized === "image/jpg" ? "image/jpeg" : normalized;
+}
+
+async function delay(milliseconds: number): Promise<void> {
+  await new Promise((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
+}
+
+function extractCloudflareIngredientResponse(
+  result: unknown,
+): CloudflareIngredientResponse {
+  const response = readCloudflareResponse(result);
+
+  if (!response) {
+    throw new VisionAnalysisError(
+      "Cloudflare returned an empty analysis response",
+    );
+  }
+
+  if (typeof response === "object") {
+    return response as CloudflareIngredientResponse;
+  }
+
+  if (typeof response === "string") {
+    return parseCloudflareIngredientResponse(response);
+  }
+
+  throw new VisionAnalysisError(
+    "Cloudflare returned unsupported analysis output",
+  );
+}
+
+function readCloudflareResponse(result: unknown): unknown {
+  if (typeof result === "string") {
+    return result.trim();
+  }
+
+  if (!result || typeof result !== "object") {
+    return null;
+  }
+
+  const record = result as Record<string, unknown>;
+  const directText = record.response ?? record.text ?? record.output;
+
+  if (typeof directText === "string") {
+    return directText.trim();
+  }
+
+  if (directText && typeof directText === "object") {
+    return directText;
+  }
+
+  if (Array.isArray(directText)) {
+    const text = directText
+      .map(readCloudflareResponse)
+      .filter((item): item is string => typeof item === "string")
+      .join("\n");
+
+    return text || null;
+  }
+
+  return null;
+}
+
+function parseCloudflareIngredientResponse(
+  text: string,
+): CloudflareIngredientResponse {
+  try {
+    return JSON.parse(text) as CloudflareIngredientResponse;
   } catch {
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      throw new VisionAnalysisError("Gemini returned non-JSON analysis output");
+      throw new VisionAnalysisError(
+        "Cloudflare returned non-JSON analysis output",
+      );
     }
 
     try {
-      return JSON.parse(jsonMatch[0]) as GeminiIngredientResponse;
+      return JSON.parse(jsonMatch[0]) as CloudflareIngredientResponse;
     } catch {
-      throw new VisionAnalysisError("Gemini returned malformed JSON output");
+      throw new VisionAnalysisError(
+        "Cloudflare returned malformed JSON output",
+      );
     }
   }
 }
 
-function normalizeIngredients(
-  ingredients: NonNullable<GeminiIngredientResponse["ingredients"]>,
-): DetectedIngredient[] {
-  return ingredients
-    .map((ingredient) => {
-      const name = typeof ingredient.name === "string" ? ingredient.name : "";
-      const confidence = Number(ingredient.confidence);
+function normalizeIngredients(ingredients: unknown): DetectedIngredient[] {
+  if (!Array.isArray(ingredients)) {
+    return [];
+  }
 
-      return {
-        name: name.trim().toLowerCase(),
-        confidence: Number.isFinite(confidence)
-          ? Math.min(Math.max(confidence, 0), 1)
-          : 0,
-      };
-    })
-    .filter((ingredient) => ingredient.name.length > 0)
+  return Array.from(
+    new Set(
+      ingredients
+        .map(readIngredientName)
+        .map((name) => name.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  )
+    .map((name) => ({
+      name,
+      confidence: 1,
+    }))
     .slice(0, 20);
 }
 
-function normalizeModelName(model: string): string {
-  return model.trim().replace(/^models\//, "") || defaultGeminiModel;
+function readIngredientName(value: unknown): string {
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return typeof record.name === "string" ? record.name : "";
+  }
+
+  return "";
 }
