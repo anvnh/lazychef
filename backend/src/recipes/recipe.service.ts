@@ -4,21 +4,17 @@ import { readOptionalEnv, readRequiredEnv } from "../config/env.js";
 import { getDb } from "../db/client.js";
 import { detectedIngredients, recipeSuggestions, scans } from "../db/schema.js";
 
-const defaultGeminiModel = "gemini-2.5-flash";
-const geminiApiBaseUrl = "https://generativelanguage.googleapis.com/v1beta";
+const cloudflareRecipeModel = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 const googleCustomSearchUrl = "https://www.googleapis.com/customsearch/v1";
 
-type GeminiGenerateContentResponse = {
-  candidates?: Array<{
-    content?: {
-      parts?: Array<{
-        text?: string;
-      }>;
-    };
-  }>;
-  error?: {
-    message?: string;
+type CloudflareTextGenerationResponse = {
+  success?: boolean;
+  result?: {
+    response?: unknown;
   };
+  errors?: Array<{
+    message?: string;
+  }>;
 };
 
 type GoogleImageSearchResponse = {
@@ -213,63 +209,59 @@ async function getLatestUserScan(userId: string) {
 async function generateRecipes(
   ingredientNames: string[],
 ): Promise<GeneratedRecipe[]> {
-  const model = normalizeModelName(
-    readOptionalEnv("GEMINI_MODEL", defaultGeminiModel),
-  );
   const response = await fetch(
-    `${geminiApiBaseUrl}/models/${model}:generateContent`,
+    `https://api.cloudflare.com/client/v4/accounts/${readRequiredEnv(
+      "CLOUDFLARE_ACCOUNT_ID",
+    )}/ai/run/${cloudflareRecipeModel}`,
     {
       method: "POST",
       headers: {
+        Authorization: `Bearer ${readRequiredEnv("CLOUDFLARE_AUTH_TOKEN")}`,
         "Content-Type": "application/json",
-        "x-goog-api-key": readRequiredEnv("GEMINI_API_KEY"),
       },
       body: JSON.stringify({
-        contents: [
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a cooking assistant. Return strict JSON only. Do not include markdown, prose, code fences, or explanations.",
+          },
           {
             role: "user",
-            parts: [
-              {
-                text:
-                  "You are a cooking assistant.\n" +
-                  `Given these available ingredients: ${ingredientNames.join(", ")}\n\n` +
-                  "Suggest 5 recipes using ONLY or MOSTLY these ingredients.\n" +
-                  "Return ONLY a valid JSON array, no markdown, no explanation.\n" +
-                  "Each object must have:\n" +
-                  "- title: string\n" +
-                  "- description: one sentence summary\n" +
-                  "- instructions: full step by step as a single string\n" +
-                  '- cookingTime: string e.g. "20 minutes"\n' +
-                  '- difficulty: "easy" | "medium" | "hard"\n' +
-                  "- missingIngredients: string array of common ingredients needed but not available, keep minimal",
-              },
-            ],
+            content:
+              `Given these available ingredients: ${ingredientNames.join(", ")}\n\n` +
+              "Suggest 5 recipes using ONLY or MOSTLY these ingredients.\n" +
+              "Return ONLY a valid JSON array.\n" +
+              "Each object must have:\n" +
+              "- title: string\n" +
+              "- description: one sentence summary\n" +
+              "- instructions: full step by step as a single string\n" +
+              '- cookingTime: string e.g. "20 minutes"\n' +
+              '- difficulty: "easy" | "medium" | "hard"\n' +
+              "- missingIngredients: string array of common ingredients needed but not available, keep minimal",
           },
         ],
-        generationConfig: {
-          temperature: 0.4,
-          responseMimeType: "application/json",
-        },
+        max_tokens: 1800,
+        temperature: 0.3,
       }),
     },
   );
   const payload = (await response
     .json()
-    .catch(() => null)) as GeminiGenerateContentResponse | null;
+    .catch(() => null)) as CloudflareTextGenerationResponse | null;
 
-  if (!response.ok) {
+  if (!response.ok || payload?.success === false) {
     throw new RecipeGenerationError(
-      payload?.error?.message ?? "Gemini recipe generation failed",
+      payload?.errors?.[0]?.message ?? "Cloudflare recipe generation failed",
     );
   }
 
-  const text = payload?.candidates?.[0]?.content?.parts
-    ?.map((part) => part.text ?? "")
-    .join("")
-    .trim();
+  const text = readCloudflareRecipeResponse(payload?.result?.response);
 
   if (!text) {
-    throw new RecipeGenerationError("Gemini returned an empty recipe response");
+    throw new RecipeGenerationError(
+      "Cloudflare returned an empty recipe response",
+    );
   }
 
   return normalizeRecipes(parseRecipeResponse(text));
@@ -281,20 +273,24 @@ function parseRecipeResponse(text: string): unknown {
   } catch {
     const jsonMatch = text.match(/\[[\s\S]*\]/);
     if (!jsonMatch) {
-      throw new RecipeGenerationError("Gemini returned non-JSON recipes");
+      throw new RecipeGenerationError("Cloudflare returned non-JSON recipes");
     }
 
     try {
       return JSON.parse(jsonMatch[0]) as unknown;
     } catch {
-      throw new RecipeGenerationError("Gemini returned malformed recipe JSON");
+      throw new RecipeGenerationError(
+        "Cloudflare returned malformed recipe JSON",
+      );
     }
   }
 }
 
 function normalizeRecipes(value: unknown): GeneratedRecipe[] {
   if (!Array.isArray(value)) {
-    throw new RecipeGenerationError("Gemini recipe response was not an array");
+    throw new RecipeGenerationError(
+      "Cloudflare recipe response was not an array",
+    );
   }
 
   return value
@@ -306,8 +302,8 @@ function normalizeRecipes(value: unknown): GeneratedRecipe[] {
       const item = recipe as Record<string, unknown>;
       const title = readString(item.title);
       const description = readString(item.description);
-      const instructions = readString(item.instructions);
-      const cookingTime = readString(item.cookingTime);
+      const instructions = readInstructions(item.instructions);
+      const cookingTime = readCookingTime(item.cookingTime);
       const difficulty = normalizeDifficulty(item.difficulty);
       const missingIngredients = Array.isArray(item.missingIngredients)
         ? item.missingIngredients.map(readString).filter(Boolean)
@@ -464,6 +460,38 @@ function readString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function normalizeModelName(model: string): string {
-  return model.trim().replace(/^models\//, "") || defaultGeminiModel;
+function readInstructions(value: unknown): string {
+  if (typeof value === "string") {
+    return value.trim();
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map(readString)
+      .filter(Boolean)
+      .map((step, index) => `${index + 1}. ${step}`)
+      .join(" ");
+  }
+
+  return "";
+}
+
+function readCookingTime(value: unknown): string {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return `${value} minutes`;
+  }
+
+  return readString(value);
+}
+
+function readCloudflareRecipeResponse(value: unknown): string {
+  if (typeof value === "string") {
+    return value.trim();
+  }
+
+  if (Array.isArray(value) || (value && typeof value === "object")) {
+    return JSON.stringify(value);
+  }
+
+  return "";
 }
