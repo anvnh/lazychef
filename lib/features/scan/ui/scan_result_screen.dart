@@ -7,6 +7,7 @@ import 'package:lazychef/core/router/app_router.dart';
 import 'package:lazychef/core/widgets/app_button.dart';
 import 'package:lazychef/core/widgets/lazychef_scaffold.dart';
 import 'package:lazychef/core/widgets/section_title.dart';
+import 'package:lazychef/features/scan/data/scan_repository.dart';
 import 'package:lazychef/features/scan/models/scan_image_selection.dart';
 import 'package:lazychef/features/scan/models/scan_upload_result.dart';
 import 'package:lazychef/features/scan/providers/scan_provider.dart';
@@ -49,8 +50,7 @@ class ScanResultScreen extends ConsumerWidget {
             const SectionTitle(
               eyebrow: 'Scan result',
               title: 'Your fridge looks promising',
-              subtitle:
-                  'Detected ingredients are saved to your account after upload.',
+              subtitle: 'Review and adjust detected ingredients before use.',
             ),
             const SizedBox(height: 18),
             if (selectedImage != null) ...[
@@ -127,24 +127,160 @@ class _NoScanContent extends StatelessWidget {
   }
 }
 
-class _UploadedScanContent extends StatelessWidget {
+class _UploadedScanContent extends ConsumerStatefulWidget {
   const _UploadedScanContent({required this.result});
 
   final ScanUploadResult result;
 
   @override
+  ConsumerState<_UploadedScanContent> createState() =>
+      _UploadedScanContentState();
+}
+
+class _UploadedScanContentState extends ConsumerState<_UploadedScanContent> {
+  late List<_EditableIngredient> _ingredients;
+  int? _activeEditorIndex;
+  bool _hasUnsavedChanges = false;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ingredients = _editableIngredientsFromResult();
+  }
+
+  @override
+  void didUpdateWidget(covariant _UploadedScanContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.result.scan.id != widget.result.scan.id) {
+      _ingredients = _editableIngredientsFromResult();
+      _activeEditorIndex = null;
+      _hasUnsavedChanges = false;
+      _isSaving = false;
+    }
+  }
+
+  List<_EditableIngredient> _editableIngredientsFromResult() {
+    return widget.result.analysis.detectedIngredients
+        .map(_EditableIngredient.fromDetected)
+        .toList();
+  }
+
+  void _startAddingIngredient() {
+    setState(() {
+      _activeEditorIndex = -1;
+    });
+  }
+
+  void _startEditingIngredient(int index) {
+    setState(() {
+      _activeEditorIndex = index;
+    });
+  }
+
+  void _removeIngredient(int index) {
+    setState(() {
+      _ingredients.removeAt(index);
+      _hasUnsavedChanges = true;
+
+      final activeEditorIndex = _activeEditorIndex;
+      if (activeEditorIndex == index) {
+        _activeEditorIndex = null;
+      } else if (activeEditorIndex != null && activeEditorIndex > index) {
+        _activeEditorIndex = activeEditorIndex - 1;
+      }
+    });
+  }
+
+  void _saveIngredient(String name) {
+    final activeEditorIndex = _activeEditorIndex;
+    if (activeEditorIndex == null) {
+      return;
+    }
+
+    setState(() {
+      if (activeEditorIndex == -1) {
+        _ingredients.add(_EditableIngredient.manual(name));
+      } else if (activeEditorIndex < _ingredients.length) {
+        final ingredient = _ingredients[activeEditorIndex];
+        _ingredients[activeEditorIndex] = ingredient.copyWith(name: name);
+      }
+
+      _activeEditorIndex = null;
+      _hasUnsavedChanges = true;
+    });
+  }
+
+  void _cancelIngredientEditor() {
+    setState(() {
+      _activeEditorIndex = null;
+    });
+  }
+
+  Future<void> _saveIngredientChanges() async {
+    if (_isSaving) {
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      await ref
+          .read(scanRepositoryProvider)
+          .updateScanIngredients(
+            scanId: widget.result.scan.id,
+            ingredients: _ingredients
+                .map(
+                  (ingredient) => ScanIngredientUpdate(
+                    name: ingredient.name,
+                    confidence: ingredient.confidence,
+                  ),
+                )
+                .toList(),
+          );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _hasUnsavedChanges = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ingredient changes saved.')),
+      );
+    } on ScanUploadException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final ingredients = result.analysis.detectedIngredients;
-    final ingredientCount = ingredients.length;
+    final ingredientCount = _ingredients.length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _ScanSummaryCard(
           eyebrow: ingredientCount == 1
-              ? '1 ingredient detected'
-              : '$ingredientCount ingredients detected',
-          title: switch (result.analysis.status) {
+              ? '1 ingredient ready'
+              : '$ingredientCount ingredients ready',
+          title: switch (widget.result.analysis.status) {
             'failed' => 'Image uploaded. AI analysis needs attention.',
             'pending' => 'Image uploaded. AI analysis is pending.',
             _ => 'Image uploaded, analyzed, and saved.',
@@ -152,22 +288,55 @@ class _UploadedScanContent extends StatelessWidget {
           icon: Icons.cloud_done_rounded,
         ),
         const SizedBox(height: 16),
-        _UploadDetailsCard(result: result),
+        _UploadDetailsCard(result: widget.result),
         const SizedBox(height: 28),
-        const SectionTitle(
+        SectionTitle(
           eyebrow: 'Detected ingredients',
-          title: 'Backend analysis response',
+          title: 'Review and correct the list',
+          subtitle: 'Change, add, or remove ingredients before using them.',
+          action: FilledButton.icon(
+            onPressed: _startAddingIngredient,
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Add'),
+          ),
         ),
         const SizedBox(height: 14),
-        if (ingredients.isEmpty)
-          _EmptyIngredientsCard(analysis: result.analysis)
+        if (_activeEditorIndex != null) ...[
+          _IngredientEditorCard(
+            key: ValueKey(_activeEditorKey),
+            initialName: _activeEditorInitialName,
+            actionLabel: _activeEditorIndex == -1 ? 'Add' : 'Save',
+            onSave: _saveIngredient,
+            onCancel: _cancelIngredientEditor,
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (_ingredients.isEmpty && _activeEditorIndex == null)
+          _EmptyIngredientsCard(analysis: widget.result.analysis)
         else
-          ...ingredients.map(
-            (ingredient) => Padding(
+          ..._ingredients.asMap().entries.map(
+            (entry) => Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: _DetectedIngredientTile(ingredient: ingredient),
+              child: _DetectedIngredientTile(
+                ingredient: entry.value,
+                onEdit: () => _startEditingIngredient(entry.key),
+                onRemove: () => _removeIngredient(entry.key),
+              ),
             ),
           ),
+        if (_hasUnsavedChanges || _isSaving) ...[
+          const SizedBox(height: 4),
+          AppButton.primary(
+            label: _isSaving ? 'Saving changes...' : 'Save changes',
+            icon: Icons.save_outlined,
+            onPressed: _isSaving
+                ? () {}
+                : () {
+                    _saveIngredientChanges();
+                  },
+          ),
+          const SizedBox(height: 12),
+        ],
         const SizedBox(height: 18),
         const SectionTitle(
           eyebrow: 'Recipe suggestions',
@@ -177,6 +346,28 @@ class _UploadedScanContent extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  String get _activeEditorInitialName {
+    final activeEditorIndex = _activeEditorIndex;
+    if (activeEditorIndex == null ||
+        activeEditorIndex == -1 ||
+        activeEditorIndex >= _ingredients.length) {
+      return '';
+    }
+
+    return _ingredients[activeEditorIndex].name;
+  }
+
+  String get _activeEditorKey {
+    final activeEditorIndex = _activeEditorIndex;
+    if (activeEditorIndex == null ||
+        activeEditorIndex == -1 ||
+        activeEditorIndex >= _ingredients.length) {
+      return 'add';
+    }
+
+    return 'edit-$activeEditorIndex-${_ingredients[activeEditorIndex].name}';
   }
 }
 
@@ -506,13 +697,22 @@ class _FullImageViewer extends StatelessWidget {
 }
 
 class _DetectedIngredientTile extends StatelessWidget {
-  const _DetectedIngredientTile({required this.ingredient});
+  const _DetectedIngredientTile({
+    required this.ingredient,
+    required this.onEdit,
+    required this.onRemove,
+  });
 
-  final DetectedIngredient ingredient;
+  final _EditableIngredient ingredient;
+  final VoidCallback onEdit;
+  final VoidCallback onRemove;
 
   @override
   Widget build(BuildContext context) {
-    final percentage = (ingredient.confidence * 100).round();
+    final confidence = ingredient.confidence;
+    final confidenceLabel = confidence == null
+        ? 'Manual'
+        : '${(confidence * 100).round()}%';
 
     return Card(
       child: Padding(
@@ -522,19 +722,152 @@ class _DetectedIngredientTile extends StatelessWidget {
             Expanded(
               child: Text(
                 ingredient.name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ),
-            Text(
-              '$percentage%',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(color: const Color(0xFFC85D3B)),
+            const SizedBox(width: 8),
+            _metadataPill(confidenceLabel),
+            const SizedBox(width: 4),
+            IconButton(
+              onPressed: onEdit,
+              tooltip: 'Change ingredient',
+              icon: const Icon(Icons.edit_outlined),
+            ),
+            IconButton(
+              onPressed: onRemove,
+              tooltip: 'Remove ingredient',
+              icon: const Icon(
+                Icons.delete_outline_rounded,
+                color: Color(0xFFC85D3B),
+              ),
             ),
           ],
         ),
       ),
     );
+  }
+}
+
+class _IngredientEditorCard extends StatefulWidget {
+  const _IngredientEditorCard({
+    required this.initialName,
+    required this.actionLabel,
+    required this.onSave,
+    required this.onCancel,
+    super.key,
+  });
+
+  final String initialName;
+  final String actionLabel;
+  final ValueChanged<String> onSave;
+  final VoidCallback onCancel;
+
+  @override
+  State<_IngredientEditorCard> createState() => _IngredientEditorCardState();
+}
+
+class _IngredientEditorCardState extends State<_IngredientEditorCard> {
+  late final TextEditingController _controller;
+  final _formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialName);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    if (_formKey.currentState?.validate() ?? false) {
+      widget.onSave(_controller.text.trim());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${widget.actionLabel} ingredient',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _controller,
+                autofocus: true,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(
+                  labelText: 'Ingredient name',
+                  prefixIcon: Icon(Icons.restaurant_menu_rounded),
+                ),
+                textInputAction: TextInputAction.done,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Enter an ingredient name';
+                  }
+
+                  return null;
+                },
+                onFieldSubmitted: (_) => _save(),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: widget.onCancel,
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: _save,
+                      child: Text(widget.actionLabel),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EditableIngredient {
+  const _EditableIngredient({required this.name, required this.confidence});
+
+  factory _EditableIngredient.fromDetected(DetectedIngredient ingredient) {
+    return _EditableIngredient(
+      name: ingredient.name,
+      confidence: ingredient.confidence,
+    );
+  }
+
+  factory _EditableIngredient.manual(String name) {
+    return _EditableIngredient(name: name, confidence: null);
+  }
+
+  final String name;
+  final double? confidence;
+
+  _EditableIngredient copyWith({String? name}) {
+    return _EditableIngredient(name: name ?? this.name, confidence: confidence);
   }
 }
 

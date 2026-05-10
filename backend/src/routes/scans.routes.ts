@@ -6,7 +6,12 @@ import {
 } from "../cloudinary/cloudinary.service.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { queueRecipeSuggestionsForScan } from "../recipes/recipe.service.js";
-import { listUserScanHistory, saveScanResult } from "../scans/scan.service.js";
+import {
+  listUserScanHistory,
+  replaceScanIngredients,
+  saveScanResult,
+  type EditableIngredient,
+} from "../scans/scan.service.js";
 import type { UploadableImage } from "../scans/uploadable-image.js";
 import {
   analyzeScanImageUrl,
@@ -86,6 +91,42 @@ scansRoutes.post("/upload", async (context) => {
   }
 });
 
+scansRoutes.put("/:scanId/ingredients", async (context) => {
+  const scanId = context.req.param("scanId").trim();
+  if (!scanId) {
+    return context.json({ error: "Scan id is required" }, 400);
+  }
+
+  const body = await context.req.json().catch(() => null);
+  const ingredients = parseEditableIngredients(body);
+  if (!ingredients) {
+    return context.json({ error: "Expected ingredients array" }, 400);
+  }
+
+  try {
+    const user = context.get("user");
+    const updatedIngredients = await replaceScanIngredients({
+      scanId,
+      userId: user.id,
+      ingredients,
+    });
+
+    if (!updatedIngredients) {
+      return context.json({ error: "Scan not found" }, 404);
+    }
+
+    queueRecipeSuggestionsForScan(
+      scanId,
+      updatedIngredients.map((ingredient) => ingredient.name),
+    );
+
+    return context.json({ ingredients: updatedIngredients });
+  } catch (error) {
+    console.error("Scan ingredient update failed", error);
+    return context.json({ error: "Could not update scan ingredients" }, 500);
+  }
+});
+
 function isUploadableImage(value: unknown): value is UploadableImage {
   return (
     typeof Blob !== "undefined" &&
@@ -93,6 +134,46 @@ function isUploadableImage(value: unknown): value is UploadableImage {
     typeof value.type === "string" &&
     typeof value.size === "number"
   );
+}
+
+function parseEditableIngredients(body: unknown): EditableIngredient[] | null {
+  if (!body || typeof body !== "object" || !("ingredients" in body)) {
+    return null;
+  }
+
+  const ingredients = (body as { ingredients?: unknown }).ingredients;
+  if (!Array.isArray(ingredients) || ingredients.length > 50) {
+    return null;
+  }
+
+  const parsed: EditableIngredient[] = [];
+  for (const ingredient of ingredients) {
+    if (!ingredient || typeof ingredient !== "object") {
+      return null;
+    }
+
+    const name = (ingredient as { name?: unknown }).name;
+    const confidence = (ingredient as { confidence?: unknown }).confidence;
+
+    if (typeof name !== "string") {
+      return null;
+    }
+
+    if (
+      confidence !== undefined &&
+      confidence !== null &&
+      (typeof confidence !== "number" || !Number.isFinite(confidence))
+    ) {
+      return null;
+    }
+
+    parsed.push({
+      name,
+      confidence: confidence ?? null,
+    });
+  }
+
+  return parsed;
 }
 
 function toFailedAnalysis(error: unknown): VisionAnalysisResult {

@@ -138,6 +138,11 @@ async function generateAndPersistRecipeSuggestions(
     return [];
   }
 
+  const currentIngredients = await getScanIngredientNames(scanId);
+  if (!sameIngredients(normalizedIngredients, currentIngredients)) {
+    return [];
+  }
+
   const db = getDb();
   const recipesToInsert = generatedRecipes.map((recipe) => ({
     id: randomUUID(),
@@ -529,6 +534,24 @@ function normalizeIngredientNames(ingredientNames: string[]): string[] {
         .filter((name) => name.length > 0),
     ),
   );
+}
+
+async function getScanIngredientNames(scanId: string): Promise<string[]> {
+  const rows = await getDb()
+    .select({ name: detectedIngredients.name })
+    .from(detectedIngredients)
+    .where(eq(detectedIngredients.scanId, scanId));
+
+  return normalizeIngredientNames(rows.map((ingredient) => ingredient.name));
+}
+
+function sameIngredients(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  const rightIngredients = new Set(right);
+  return left.every((ingredient) => rightIngredients.has(ingredient));
 }
 
 function normalizeDifficulty(value: unknown): "easy" | "medium" | "hard" {

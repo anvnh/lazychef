@@ -53,6 +53,40 @@ class ScanRepository {
     }
   }
 
+  Future<void> updateScanIngredients({
+    required String scanId,
+    required List<ScanIngredientUpdate> ingredients,
+  }) async {
+    try {
+      final token = await _readRequiredToken();
+
+      await _dio.put<Map<String, dynamic>>(
+        '/scans/$scanId/ingredients',
+        data: {
+          'ingredients': ingredients
+              .map((ingredient) => ingredient.toJson())
+              .toList(),
+        },
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+    } on ScanUploadException {
+      rethrow;
+    } on DioException catch (error) {
+      throw ScanUploadException(_parseDioError(error));
+    } catch (_) {
+      throw const ScanUploadException('Could not save ingredient changes.');
+    }
+  }
+
+  Future<String> _readRequiredToken() async {
+    final token = await _storage.read(key: 'jwt_token');
+    if (token == null || token.isEmpty) {
+      throw const ScanUploadException('Please sign in before scanning.');
+    }
+
+    return token;
+  }
+
   String _resolveContentType(XFile image, String fileName) {
     if (image.mimeType != null && image.mimeType!.isNotEmpty) {
       return image.mimeType!;
@@ -102,6 +136,17 @@ class ScanRepository {
     }
 
     return 'Could not upload scan image. ${error.message ?? ''}'.trim();
+  }
+}
+
+class ScanIngredientUpdate {
+  const ScanIngredientUpdate({required this.name, required this.confidence});
+
+  final String name;
+  final double? confidence;
+
+  Map<String, Object?> toJson() {
+    return {'name': name, 'confidence': confidence};
   }
 }
 

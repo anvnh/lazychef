@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import type { CloudinaryUploadResult } from "../cloudinary/cloudinary.service.js";
 import { getDb } from "../db/client.js";
 import { detectedIngredients, recipeSuggestions, scans } from "../db/schema.js";
@@ -26,6 +26,11 @@ export type RecipeSuggestion = {
 export type ScanHistoryItem = Required<SavedScan> & {
   detectedIngredients: DetectedIngredient[];
   recipeSuggestions: RecipeSuggestion[];
+};
+
+export type EditableIngredient = {
+  name: string;
+  confidence: number | null;
 };
 
 export async function saveScanResult(input: {
@@ -129,6 +134,76 @@ export async function listUserScanHistory(
     detectedIngredients: ingredientsByScanId.get(scan.id) ?? [],
     recipeSuggestions: recipesByScanId.get(scan.id) ?? [],
   }));
+}
+
+export async function replaceScanIngredients(input: {
+  scanId: string;
+  userId: string;
+  ingredients: EditableIngredient[];
+}): Promise<EditableIngredient[] | null> {
+  const db = getDb();
+  const [scan] = await db
+    .select({ id: scans.id })
+    .from(scans)
+    .where(and(eq(scans.id, input.scanId), eq(scans.userId, input.userId)))
+    .limit(1);
+
+  if (!scan) {
+    return null;
+  }
+
+  const ingredients = normalizeEditableIngredients(input.ingredients);
+
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(detectedIngredients)
+      .where(eq(detectedIngredients.scanId, input.scanId));
+    await tx
+      .delete(recipeSuggestions)
+      .where(eq(recipeSuggestions.scanId, input.scanId));
+
+    if (ingredients.length === 0) {
+      return;
+    }
+
+    await tx.insert(detectedIngredients).values(
+      ingredients.map((ingredient) => ({
+        id: randomUUID(),
+        scanId: input.scanId,
+        name: ingredient.name,
+        confidence: ingredient.confidence,
+      })),
+    );
+  });
+
+  return ingredients;
+}
+
+function normalizeEditableIngredients(
+  ingredients: EditableIngredient[],
+): EditableIngredient[] {
+  const seenNames = new Set<string>();
+  const normalized: EditableIngredient[] = [];
+
+  for (const ingredient of ingredients) {
+    const name = ingredient.name.trim();
+    const normalizedName = name.toLocaleLowerCase();
+
+    if (!name || seenNames.has(normalizedName)) {
+      continue;
+    }
+
+    seenNames.add(normalizedName);
+    normalized.push({
+      name,
+      confidence:
+        typeof ingredient.confidence === "number"
+          ? Math.max(0, Math.min(1, ingredient.confidence))
+          : null,
+    });
+  }
+
+  return normalized;
 }
 
 function parseMissingIngredients(value: string | null): string[] {
