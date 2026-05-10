@@ -452,7 +452,11 @@ String _timeLabel(DateTime? date) {
   return '$hour:${_twoDigits(date.minute)} $period';
 }
 
-String _confidenceLabel(double confidence) {
+String _confidenceLabel(double? confidence) {
+  if (confidence == null) {
+    return 'Man.';
+  }
+
   if (confidence <= 0) {
     return '';
   }

@@ -24,7 +24,7 @@ export type RecipeSuggestion = {
 };
 
 export type ScanHistoryItem = Required<SavedScan> & {
-  detectedIngredients: DetectedIngredient[];
+  detectedIngredients: EditableIngredient[];
   recipeSuggestions: RecipeSuggestion[];
 };
 
@@ -97,12 +97,13 @@ export async function listUserScanHistory(
       .where(inArray(recipeSuggestions.scanId, scanIds)),
   ]);
 
-  const ingredientsByScanId = new Map<string, DetectedIngredient[]>();
+  const ingredientsByScanId = new Map<string, EditableIngredient[]>();
   for (const ingredient of ingredientRows) {
     const scanIngredients = ingredientsByScanId.get(ingredient.scanId) ?? [];
     scanIngredients.push({
       name: ingredient.name,
-      confidence: Number(ingredient.confidence ?? 0),
+      confidence:
+        ingredient.confidence === null ? null : Number(ingredient.confidence),
     });
     ingredientsByScanId.set(ingredient.scanId, scanIngredients);
   }

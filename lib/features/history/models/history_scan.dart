@@ -55,12 +55,12 @@ class HistoryIngredient {
   factory HistoryIngredient.fromJson(Map<String, dynamic> json) {
     return HistoryIngredient(
       name: json['name'] as String? ?? '',
-      confidence: (json['confidence'] as num?)?.toDouble() ?? 0,
+      confidence: (json['confidence'] as num?)?.toDouble(),
     );
   }
 
   final String name;
-  final double confidence;
+  final double? confidence;
 
   String get displayName {
     if (name.isEmpty) {

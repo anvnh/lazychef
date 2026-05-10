@@ -6,6 +6,7 @@ import 'package:lazychef/core/widgets/app_button.dart';
 import 'package:lazychef/core/widgets/lazychef_scaffold.dart';
 import 'package:lazychef/features/history/models/history_scan.dart';
 import 'package:lazychef/features/history/providers/history_provider.dart';
+import 'package:lazychef/features/scan/data/scan_repository.dart';
 import 'package:lazychef/features/scan/utils/scan_image_picker.dart';
 
 enum _IngredientFilter {
@@ -24,6 +25,8 @@ enum _IngredientFilter {
   final String label;
 }
 
+enum _IngredientCardAction { edit, remove }
+
 class IngredientsScreen extends ConsumerStatefulWidget {
   const IngredientsScreen({super.key});
 
@@ -34,6 +37,9 @@ class IngredientsScreen extends ConsumerStatefulWidget {
 class _IngredientsScreenState extends ConsumerState<IngredientsScreen> {
   final _searchController = TextEditingController();
   _IngredientFilter _selectedFilter = _IngredientFilter.latest;
+  _IngredientInventoryItem? _editingIngredient;
+  bool _isAddingIngredient = false;
+  bool _isSavingIngredient = false;
 
   @override
   void initState() {
@@ -51,6 +57,193 @@ class _IngredientsScreenState extends ConsumerState<IngredientsScreen> {
 
   void _onSearchChanged() {
     setState(() {});
+  }
+
+  void _startAddingIngredient() {
+    setState(() {
+      _isAddingIngredient = true;
+      _editingIngredient = null;
+    });
+  }
+
+  void _startEditingIngredient(_IngredientInventoryItem ingredient) {
+    setState(() {
+      _editingIngredient = ingredient;
+      _isAddingIngredient = false;
+    });
+  }
+
+  void _cancelIngredientEditor() {
+    setState(() {
+      _isAddingIngredient = false;
+      _editingIngredient = null;
+    });
+  }
+
+  Future<void> _saveIngredient({
+    required String name,
+    required List<HistoryScan> scans,
+  }) async {
+    final ingredientName = name.trim();
+    if (ingredientName.isEmpty || _isSavingIngredient) {
+      return;
+    }
+
+    setState(() {
+      _isSavingIngredient = true;
+    });
+
+    try {
+      final editingIngredient = _editingIngredient;
+      if (_isAddingIngredient) {
+        await _addIngredientToLatestScan(ingredientName, scans);
+      } else if (editingIngredient != null) {
+        await _renameIngredientInScans(
+          ingredient: editingIngredient,
+          newName: ingredientName,
+          scans: scans,
+        );
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      _cancelIngredientEditor();
+      ref.invalidate(scanHistoryProvider);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ingredient changes saved.')),
+      );
+    } on ScanUploadException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSavingIngredient = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _removeIngredient({
+    required _IngredientInventoryItem ingredient,
+    required List<HistoryScan> scans,
+  }) async {
+    if (_isSavingIngredient) {
+      return;
+    }
+
+    setState(() {
+      _isSavingIngredient = true;
+    });
+
+    try {
+      final repository = ref.read(scanRepositoryProvider);
+      final targetName = ingredient.name.toLowerCase().trim();
+      final affectedScans = scans.where(
+        (scan) => scan.detectedIngredients.any(
+          (scanIngredient) =>
+              scanIngredient.name.toLowerCase().trim() == targetName,
+        ),
+      );
+
+      for (final scan in affectedScans) {
+        await repository.updateScanIngredients(
+          scanId: scan.id,
+          ingredients: scan.detectedIngredients
+              .where(
+                (scanIngredient) =>
+                    scanIngredient.name.toLowerCase().trim() != targetName,
+              )
+              .map(_scanIngredientUpdate)
+              .toList(),
+        );
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      if (_editingIngredient?.name == ingredient.name) {
+        _cancelIngredientEditor();
+      }
+      ref.invalidate(scanHistoryProvider);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Ingredient removed.')));
+    } on ScanUploadException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSavingIngredient = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _addIngredientToLatestScan(
+    String ingredientName,
+    List<HistoryScan> scans,
+  ) async {
+    if (scans.isEmpty) {
+      throw const ScanUploadException(
+        'Scan an image before adding ingredients.',
+      );
+    }
+
+    final latestScan = scans.first;
+    final ingredients = [
+      ...latestScan.detectedIngredients.map(_scanIngredientUpdate),
+      ScanIngredientUpdate(name: ingredientName, confidence: null),
+    ];
+
+    await ref
+        .read(scanRepositoryProvider)
+        .updateScanIngredients(scanId: latestScan.id, ingredients: ingredients);
+  }
+
+  Future<void> _renameIngredientInScans({
+    required _IngredientInventoryItem ingredient,
+    required String newName,
+    required List<HistoryScan> scans,
+  }) async {
+    final repository = ref.read(scanRepositoryProvider);
+    final targetName = ingredient.name.toLowerCase().trim();
+    final affectedScans = scans.where(
+      (scan) => scan.detectedIngredients.any(
+        (scanIngredient) =>
+            scanIngredient.name.toLowerCase().trim() == targetName,
+      ),
+    );
+
+    for (final scan in affectedScans) {
+      await repository.updateScanIngredients(
+        scanId: scan.id,
+        ingredients: scan.detectedIngredients.map((scanIngredient) {
+          if (scanIngredient.name.toLowerCase().trim() == targetName) {
+            return ScanIngredientUpdate(
+              name: newName,
+              confidence: scanIngredient.confidence,
+            );
+          }
+
+          return _scanIngredientUpdate(scanIngredient);
+        }).toList(),
+      );
+    }
   }
 
   @override
@@ -135,15 +328,53 @@ class _IngredientsScreenState extends ConsumerState<IngredientsScreen> {
                     query: _searchController.text,
                     filter: _selectedFilter,
                   );
+                  final activeEditor =
+                      _isAddingIngredient || _editingIngredient != null;
 
                   if (scans.isEmpty) {
                     return const _EmptyIngredients();
                   }
-                  if (ingredients.isEmpty) {
-                    return const _NoMatchingIngredients();
-                  }
 
-                  return _IngredientsGrid(ingredients: ingredients);
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      AppButton.secondary(
+                        label: 'Add ingredient to latest scan',
+                        icon: Icons.add_rounded,
+                        onPressed: _startAddingIngredient,
+                      ),
+                      const SizedBox(height: 14),
+                      if (activeEditor) ...[
+                        _InventoryIngredientEditorCard(
+                          key: ValueKey(
+                            _editingIngredient?.name ?? 'add-ingredient',
+                          ),
+                          initialName: _editingIngredient?.displayName ?? '',
+                          actionLabel: _isAddingIngredient ? 'Add' : 'Save',
+                          isSaving: _isSavingIngredient,
+                          onSave: (name) {
+                            _saveIngredient(name: name, scans: scans);
+                          },
+                          onCancel: _cancelIngredientEditor,
+                        ),
+                        const SizedBox(height: 14),
+                      ],
+                      if (ingredients.isEmpty)
+                        const _NoMatchingIngredients()
+                      else
+                        _IngredientsGrid(
+                          ingredients: ingredients,
+                          isSaving: _isSavingIngredient,
+                          onEdit: _startEditingIngredient,
+                          onRemove: (ingredient) {
+                            _removeIngredient(
+                              ingredient: ingredient,
+                              scans: scans,
+                            );
+                          },
+                        ),
+                    ],
+                  );
                 },
               ),
             ],
@@ -206,9 +437,17 @@ class _FilterChips extends StatelessWidget {
 }
 
 class _IngredientsGrid extends StatelessWidget {
-  const _IngredientsGrid({required this.ingredients});
+  const _IngredientsGrid({
+    required this.ingredients,
+    required this.isSaving,
+    required this.onEdit,
+    required this.onRemove,
+  });
 
   final List<_IngredientInventoryItem> ingredients;
+  final bool isSaving;
+  final ValueChanged<_IngredientInventoryItem> onEdit;
+  final ValueChanged<_IngredientInventoryItem> onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -237,7 +476,12 @@ class _IngredientsGrid extends StatelessWidget {
               ),
               itemCount: ingredients.length,
               itemBuilder: (context, index) {
-                return _IngredientCard(ingredient: ingredients[index]);
+                return _IngredientCard(
+                  ingredient: ingredients[index],
+                  isSaving: isSaving,
+                  onEdit: () => onEdit(ingredients[index]),
+                  onRemove: () => onRemove(ingredients[index]),
+                );
               },
             ),
           ],
@@ -248,9 +492,17 @@ class _IngredientsGrid extends StatelessWidget {
 }
 
 class _IngredientCard extends StatelessWidget {
-  const _IngredientCard({required this.ingredient});
+  const _IngredientCard({
+    required this.ingredient,
+    required this.isSaving,
+    required this.onEdit,
+    required this.onRemove,
+  });
 
   final _IngredientInventoryItem ingredient;
+  final bool isSaving;
+  final VoidCallback onEdit;
+  final VoidCallback onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -266,20 +518,68 @@ class _IngredientCard extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  width: 44,
-                  height: 44,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
                     color: iconSpec.backgroundColor,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(iconSpec.icon, color: iconSpec.color),
                 ),
-                const Spacer(),
-                Text(
-                  '${ingredient.confidencePercent}%',
-                  style: textTheme.labelLarge?.copyWith(
-                    color: const Color(0xFFC85D3B),
-                    fontWeight: FontWeight.w800,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    ingredient.confidenceLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.end,
+                    style: textTheme.labelLarge?.copyWith(
+                      color: const Color(0xFFC85D3B),
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 32,
+                  height: 32,
+                  child: PopupMenuButton<_IngredientCardAction>(
+                    enabled: !isSaving,
+                    tooltip: 'Ingredient actions',
+                    padding: EdgeInsets.zero,
+                    icon: const Icon(Icons.more_vert_rounded),
+                    onSelected: (action) {
+                      switch (action) {
+                        case _IngredientCardAction.edit:
+                          onEdit();
+                        case _IngredientCardAction.remove:
+                          onRemove();
+                      }
+                    },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(
+                        value: _IngredientCardAction.edit,
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit_outlined),
+                            SizedBox(width: 10),
+                            Text('Edit'),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: _IngredientCardAction.remove,
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.delete_outline_rounded,
+                              color: Color(0xFFC85D3B),
+                            ),
+                            SizedBox(width: 10),
+                            Text('Remove'),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -322,6 +622,116 @@ class _IngredientCard extends StatelessWidget {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InventoryIngredientEditorCard extends StatefulWidget {
+  const _InventoryIngredientEditorCard({
+    required this.initialName,
+    required this.actionLabel,
+    required this.isSaving,
+    required this.onSave,
+    required this.onCancel,
+    super.key,
+  });
+
+  final String initialName;
+  final String actionLabel;
+  final bool isSaving;
+  final ValueChanged<String> onSave;
+  final VoidCallback onCancel;
+
+  @override
+  State<_InventoryIngredientEditorCard> createState() =>
+      _InventoryIngredientEditorCardState();
+}
+
+class _InventoryIngredientEditorCardState
+    extends State<_InventoryIngredientEditorCard> {
+  late final TextEditingController _controller;
+  final _formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialName);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    if (widget.isSaving) {
+      return;
+    }
+
+    if (_formKey.currentState?.validate() ?? false) {
+      widget.onSave(_controller.text.trim());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${widget.actionLabel} ingredient',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _controller,
+                enabled: !widget.isSaving,
+                autofocus: true,
+                textCapitalization: TextCapitalization.words,
+                textInputAction: TextInputAction.done,
+                decoration: const InputDecoration(
+                  labelText: 'Ingredient name',
+                  prefixIcon: Icon(Icons.restaurant_menu_rounded),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Enter an ingredient name';
+                  }
+
+                  return null;
+                },
+                onFieldSubmitted: (_) => _save(),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: widget.isSaving ? null : widget.onCancel,
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: widget.isSaving ? null : _save,
+                      child: Text(
+                        widget.isSaving ? 'Saving...' : widget.actionLabel,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -515,7 +925,8 @@ List<_IngredientInventoryItem> _filterIngredients({
         ingredient.name,
         _pantryKeywords,
       ),
-      _IngredientFilter.highConfidence => ingredient.bestConfidence >= 0.75,
+      _IngredientFilter.highConfidence =>
+        !ingredient.isManualOnly && ingredient.bestConfidence >= 0.75,
     };
 
     return matchesQuery && matchesFilter;
@@ -549,6 +960,13 @@ bool _matchesIngredientSearch({
       .where((term) => term.isNotEmpty);
 
   return queryTerms.every(searchText.contains);
+}
+
+ScanIngredientUpdate _scanIngredientUpdate(HistoryIngredient ingredient) {
+  return ScanIngredientUpdate(
+    name: ingredient.name,
+    confidence: ingredient.confidence,
+  );
 }
 
 bool _matchesIngredientCategory(String name, Set<String> keywords) {
@@ -870,9 +1288,14 @@ List<_IngredientInventoryItem> _buildInventory(List<HistoryScan> scans) {
         () => _MutableIngredientInventoryItem(name: name),
       );
       item.scanIds.add(scan.id);
-      item.bestConfidence = item.bestConfidence > ingredient.confidence
-          ? item.bestConfidence
-          : ingredient.confidence;
+      final confidence = ingredient.confidence;
+      if (confidence == null) {
+        item.hasManualIngredient = true;
+      } else {
+        item.bestConfidence = item.bestConfidence > confidence
+            ? item.bestConfidence
+            : confidence;
+      }
 
       final createdDate = scan.createdDate;
       if (createdDate != null &&
@@ -921,6 +1344,7 @@ class _MutableIngredientInventoryItem {
   final String name;
   final Set<String> scanIds = {};
   double bestConfidence = 0;
+  bool hasManualIngredient = false;
   DateTime? lastSeen;
 }
 
@@ -930,6 +1354,7 @@ class _IngredientInventoryItem {
     required this.displayName,
     required this.scanIds,
     required this.bestConfidence,
+    required this.hasManualIngredient,
     required this.lastSeen,
   });
 
@@ -941,6 +1366,7 @@ class _IngredientInventoryItem {
       displayName: _displayName(item.name),
       scanIds: Set.unmodifiable(item.scanIds),
       bestConfidence: item.bestConfidence.clamp(0, 1),
+      hasManualIngredient: item.hasManualIngredient,
       lastSeen: item.lastSeen,
     );
   }
@@ -949,8 +1375,11 @@ class _IngredientInventoryItem {
   final String displayName;
   final Set<String> scanIds;
   final double bestConfidence;
+  final bool hasManualIngredient;
   final DateTime? lastSeen;
 
   int get scanCount => scanIds.length;
   int get confidencePercent => (bestConfidence * 100).round();
+  bool get isManualOnly => hasManualIngredient && bestConfidence <= 0;
+  String get confidenceLabel => isManualOnly ? 'Man.' : '$confidencePercent%';
 }
