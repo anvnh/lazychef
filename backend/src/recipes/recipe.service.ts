@@ -10,7 +10,7 @@ import {
 } from "../db/schema.js";
 
 const cloudflareRecipeModel = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
-const googleCustomSearchUrl = "https://www.googleapis.com/customsearch/v1";
+const pexelsSearchUrl = "https://api.pexels.com/v1/search";
 
 type CloudflareTextGenerationResponse = {
   success?: boolean;
@@ -22,9 +22,11 @@ type CloudflareTextGenerationResponse = {
   }>;
 };
 
-type GoogleImageSearchResponse = {
-  items?: Array<{
-    link?: string;
+type PexelsImageSearchResponse = {
+  photos?: Array<{
+    src?: {
+      medium?: string;
+    };
   }>;
   error?: {
     message?: string;
@@ -150,7 +152,7 @@ async function generateAndPersistRecipeSuggestions(
   }));
 
   await db.insert(recipeSuggestions).values(recipesToInsert);
-  void updateRecipeSuggestionImageUrls(recipesToInsert);
+  await updateRecipeSuggestionImageUrls(recipesToInsert);
 
   return recipesToInsert.map(toRecipeSuggestionResult);
 }
@@ -172,7 +174,7 @@ export async function suggestRecipesForLatestScan(
 
   const existingRecipes = await listRecipeSuggestionsForScan(latestScan.id);
   if (existingRecipes.length > 0) {
-    queueMissingRecipeImageUrls(existingRecipes);
+    await updateRecipeSuggestionImageUrls(existingRecipes);
     return { recipes: existingRecipes, ingredients };
   }
 
@@ -469,40 +471,28 @@ async function updateRecipeSuggestionImageUrls(
   );
 }
 
-function queueMissingRecipeImageUrls(
-  recipes: RecipeImageUpdateCandidate[],
-): void {
-  const recipesWithoutImages = recipes.filter((recipe) => !recipe.imageUrl);
-
-  if (recipesWithoutImages.length === 0) {
-    return;
-  }
-
-  void updateRecipeSuggestionImageUrls(recipesWithoutImages);
-}
-
 async function fetchRecipeImageUrl(
   recipeTitle: string,
 ): Promise<string | null> {
-  const apiKey = readOptionalEnv("GOOGLE_CUSTOM_SEARCH_API_KEY", "");
-  const cx = readOptionalEnv("GOOGLE_CUSTOM_SEARCH_CX", "");
+  const apiKey = readOptionalEnv("PEXELS_API_KEY", "");
 
-  if (!apiKey || !cx) {
+  if (!apiKey) {
     return null;
   }
 
-  const url = new URL(googleCustomSearchUrl);
-  url.searchParams.set("key", apiKey);
-  url.searchParams.set("cx", cx);
-  url.searchParams.set("q", `${recipeTitle} food`);
-  url.searchParams.set("searchType", "image");
-  url.searchParams.set("num", "1");
+  const url = new URL(pexelsSearchUrl);
+  url.searchParams.set("query", `${recipeTitle} food`);
+  url.searchParams.set("per_page", "1");
 
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      headers: {
+        Authorization: apiKey,
+      },
+    });
     const payload = (await response
       .json()
-      .catch(() => null)) as GoogleImageSearchResponse | null;
+      .catch(() => null)) as PexelsImageSearchResponse | null;
 
     if (!response.ok) {
       console.error(
@@ -512,7 +502,7 @@ async function fetchRecipeImageUrl(
       return null;
     }
 
-    const imageUrl = payload?.items?.[0]?.link;
+    const imageUrl = payload?.photos?.[0]?.src?.medium;
     return typeof imageUrl === "string" && imageUrl.trim()
       ? imageUrl.trim()
       : null;
