@@ -682,7 +682,7 @@ class _SuggestedRecipesLoading extends StatelessWidget {
       child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Generating recipes from your latest scan...'),
+          Text('Loading recipes...'),
           SizedBox(height: 14),
           LinearProgressIndicator(),
         ],

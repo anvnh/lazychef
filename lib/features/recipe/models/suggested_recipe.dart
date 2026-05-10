@@ -21,7 +21,7 @@ class SuggestedRecipe {
       cookingTime: json['cookingTime'] as String? ?? '',
       difficulty: json['difficulty'] as String? ?? 'easy',
       missingIngredients: _stringList(json['missingIngredients']),
-      imageUrl: json['imageUrl'] as String?,
+      imageUrl: (json['imageUrl'] ?? json['image_url']) as String?,
     );
   }
 

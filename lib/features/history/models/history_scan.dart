@@ -10,7 +10,7 @@ class HistoryScan {
   factory HistoryScan.fromJson(Map<String, dynamic> json) {
     return HistoryScan(
       id: json['id'] as String? ?? '',
-      imageUrl: json['imageUrl'] as String? ?? '',
+      imageUrl: (json['imageUrl'] ?? json['image_url']) as String? ?? '',
       createdAt: json['createdAt'] as String? ?? '',
       detectedIngredients: _jsonList(
         json['detectedIngredients'],
@@ -96,7 +96,7 @@ class HistoryRecipeSuggestion {
       cookingTime: json['cookingTime'] as String? ?? '',
       difficulty: json['difficulty'] as String? ?? 'easy',
       missingIngredients: _stringList(json['missingIngredients']),
-      imageUrl: json['imageUrl'] as String?,
+      imageUrl: (json['imageUrl'] ?? json['image_url']) as String?,
     );
   }
 

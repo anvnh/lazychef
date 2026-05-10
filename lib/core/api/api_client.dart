@@ -31,6 +31,8 @@ final dioProvider = Provider<Dio>((ref) {
 
 const _configuredApiUrl = String.fromEnvironment('API_URL');
 
+String get apiBaseUrl => _apiBaseUrl;
+
 String get _apiBaseUrl {
   if (_configuredApiUrl.isNotEmpty) {
     return _configuredApiUrl;
