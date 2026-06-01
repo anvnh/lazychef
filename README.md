@@ -16,6 +16,12 @@ For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
 
+## Use Genymotion Emulator
+
+```
+flutter run --dart-define=API_URL=http://10.0.3.2:3000/api
+```
+
 ## Connecting a Physical Device to Local Backend
 
 If you are testing the app on a physical Android device and running the Node.js backend locally on your computer, your phone will not be able to reach your computer using `localhost` or `10.0.2.2`.

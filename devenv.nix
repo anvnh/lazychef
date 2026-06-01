@@ -16,7 +16,10 @@ let
       "28.0.3"
       "35.0.0"
     ];
-    platformVersions = [ "36" ];
+    platformVersions = [
+      "36"
+      "35"
+    ];
     includeEmulator = false;
     emulatorVersion = "30.3.4";
     includeSources = false;
