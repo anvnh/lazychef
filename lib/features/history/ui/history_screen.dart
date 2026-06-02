@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lazychef/core/router/app_router.dart';
@@ -8,17 +10,48 @@ import 'package:lazychef/core/widgets/section_title.dart';
 import 'package:lazychef/features/history/models/history_scan.dart';
 import 'package:lazychef/features/history/providers/history_provider.dart';
 
-class HistoryScreen extends ConsumerWidget {
+const int _historyItemsPerPage = 3;
+
+class HistoryScreen extends ConsumerStatefulWidget {
   const HistoryScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HistoryScreen> createState() => _HistoryScreenState();
+}
+
+class _HistoryScreenState extends ConsumerState<HistoryScreen> {
+  int _currentPage = 1;
+
+  Future<void> _refreshHistory() async {
+    if (_currentPage != 1) {
+      setState(() {
+        _currentPage = 1;
+      });
+    }
+
+    final refresh = ref.refresh(scanHistoryProvider.future);
+    await refresh;
+  }
+
+  void _goToPage(int page, int totalPages) {
+    final nextPage = _clampPage(page, totalPages);
+    if (nextPage == _currentPage) {
+      return;
+    }
+
+    setState(() {
+      _currentPage = nextPage;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final scanHistory = ref.watch(scanHistoryProvider);
 
     return LazyChefScaffold(
       bottomNavigationBar: const AppBottomBar(currentIndex: 3),
       child: RefreshIndicator(
-        onRefresh: () => ref.refresh(scanHistoryProvider.future),
+        onRefresh: _refreshHistory,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(24, 18, 24, 110),
@@ -36,7 +69,7 @@ class HistoryScreen extends ConsumerWidget {
                   IconButton.filledTonal(
                     tooltip: 'Refresh',
                     onPressed: () {
-                      ref.invalidate(scanHistoryProvider);
+                      _refreshHistory();
                     },
                     icon: const Icon(Icons.refresh_rounded),
                   ),
@@ -75,7 +108,35 @@ class HistoryScreen extends ConsumerWidget {
                     return const _EmptyHistory();
                   }
 
-                  return _HistoryEntries(scans: scans);
+                  final totalPages = (scans.length / _historyItemsPerPage)
+                      .ceil();
+                  final currentPage = _clampPage(_currentPage, totalPages);
+                  final startIndex = (currentPage - 1) * _historyItemsPerPage;
+                  final endIndex = math.min(
+                    startIndex + _historyItemsPerPage,
+                    scans.length,
+                  );
+                  final pagedScans = scans.sublist(startIndex, endIndex);
+
+                  if (currentPage != _currentPage) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (!mounted) {
+                        return;
+                      }
+
+                      setState(() {
+                        _currentPage = currentPage;
+                      });
+                    });
+                  }
+
+                  return _PaginatedHistoryEntries(
+                    scans: pagedScans,
+                    totalScans: scans.length,
+                    currentPage: currentPage,
+                    totalPages: totalPages,
+                    onPageChanged: (page) => _goToPage(page, totalPages),
+                  );
                 },
               ),
             ],
@@ -84,6 +145,58 @@ class HistoryScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+class _PaginatedHistoryEntries extends StatelessWidget {
+  const _PaginatedHistoryEntries({
+    required this.scans,
+    required this.totalScans,
+    required this.currentPage,
+    required this.totalPages,
+    required this.onPageChanged,
+  });
+
+  final List<HistoryScan> scans;
+  final int totalScans;
+  final int currentPage;
+  final int totalPages;
+  final ValueChanged<int> onPageChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final startItem = ((currentPage - 1) * _historyItemsPerPage) + 1;
+    final endItem = startItem + scans.length - 1;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _HistoryEntries(scans: scans),
+        if (totalPages > 1) ...[
+          const SizedBox(height: 10),
+          _HistoryPagination(
+            totalScans: totalScans,
+            startItem: startItem,
+            endItem: endItem,
+            currentPage: currentPage,
+            totalPages: totalPages,
+            onPageChanged: onPageChanged,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+int _clampPage(int page, int totalPages) {
+  if (page < 1) {
+    return 1;
+  }
+
+  if (page > totalPages) {
+    return totalPages;
+  }
+
+  return page;
 }
 
 class _HistoryEntries extends StatelessWidget {
@@ -124,6 +237,75 @@ class _HistoryEntries extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: widgets,
+    );
+  }
+}
+
+class _HistoryPagination extends StatelessWidget {
+  const _HistoryPagination({
+    required this.totalScans,
+    required this.startItem,
+    required this.endItem,
+    required this.currentPage,
+    required this.totalPages,
+    required this.onPageChanged,
+  });
+
+  final int totalScans;
+  final int startItem;
+  final int endItem;
+  final int currentPage;
+  final int totalPages;
+  final ValueChanged<int> onPageChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Showing $startItem-$endItem of $totalScans saved scans',
+              style: theme.textTheme.titleMedium,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Page $currentPage of $totalPages',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: const Color(0xFF6A5D51),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.tonalIcon(
+                    onPressed: currentPage == 1
+                        ? null
+                        : () => onPageChanged(currentPage - 1),
+                    icon: const Icon(Icons.chevron_left_rounded),
+                    label: const Text('Previous'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton.tonalIcon(
+                    onPressed: currentPage == totalPages
+                        ? null
+                        : () => onPageChanged(currentPage + 1),
+                    icon: const Icon(Icons.chevron_right_rounded),
+                    label: const Text('Next'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
