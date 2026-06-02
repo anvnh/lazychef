@@ -140,13 +140,25 @@ class ScanRepository {
 }
 
 class ScanIngredientUpdate {
-  const ScanIngredientUpdate({required this.name, required this.confidence});
+  const ScanIngredientUpdate({
+    required this.name,
+    required this.confidence,
+    required this.quantity,
+    required this.expiryDate,
+  });
 
   final String name;
   final double? confidence;
+  final String? quantity;
+  final String? expiryDate;
 
   Map<String, Object?> toJson() {
-    return {'name': name, 'confidence': confidence};
+    return {
+      'name': name,
+      'confidence': confidence,
+      'quantity': quantity,
+      'expiryDate': expiryDate,
+    };
   }
 }
 

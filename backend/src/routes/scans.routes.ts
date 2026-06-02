@@ -80,10 +80,7 @@ scansRoutes.post("/upload", async (context) => {
       detectedIngredients: analysis.detectedIngredients,
     });
 
-    queueRecipeSuggestionsForScan(
-      scan.id,
-      analysis.detectedIngredients.map((ingredient) => ingredient.name),
-    );
+    queueRecipeSuggestionsForScan(scan.id);
 
     return context.json({ scan, image: uploadResult, analysis }, 201);
   } catch (error) {
@@ -115,10 +112,7 @@ scansRoutes.put("/:scanId/ingredients", async (context) => {
       return context.json({ error: "Scan not found" }, 404);
     }
 
-    queueRecipeSuggestionsForScan(
-      scanId,
-      updatedIngredients.map((ingredient) => ingredient.name),
-    );
+    queueRecipeSuggestionsForScan(scanId);
 
     return context.json({ ingredients: updatedIngredients });
   } catch (error) {
@@ -154,6 +148,8 @@ function parseEditableIngredients(body: unknown): EditableIngredient[] | null {
 
     const name = (ingredient as { name?: unknown }).name;
     const confidence = (ingredient as { confidence?: unknown }).confidence;
+    const quantity = (ingredient as { quantity?: unknown }).quantity;
+    const expiryDate = (ingredient as { expiryDate?: unknown }).expiryDate;
 
     if (typeof name !== "string") {
       return null;
@@ -167,9 +163,27 @@ function parseEditableIngredients(body: unknown): EditableIngredient[] | null {
       return null;
     }
 
+    if (
+      quantity !== undefined &&
+      quantity !== null &&
+      typeof quantity !== "string"
+    ) {
+      return null;
+    }
+
+    if (
+      expiryDate !== undefined &&
+      expiryDate !== null &&
+      typeof expiryDate !== "string"
+    ) {
+      return null;
+    }
+
     parsed.push({
       name,
       confidence: confidence ?? null,
+      quantity: typeof quantity === "string" ? quantity : null,
+      expiryDate: typeof expiryDate === "string" ? expiryDate : null,
     });
   }
 

@@ -11,7 +11,7 @@ Update this file by changing `[ ]` to `[x]` as you complete tasks.
 - [x] Create JWT middleware (`middleware/auth.ts`).
 - [x] Set up Cloudinary integration (`cloudinary/cloudinary.service.ts`).
 - [x] Set up Vision API integration (`vision/vision.service.ts`).
-- [ ] Set up Recipe generation logic (`recipes/recipe.service.ts`).
+- [x] Set up Recipe generation logic (`recipes/recipe.service.ts`).
 - [ ] Create `routes/scans.routes.ts` (`POST /`, `GET /history`).
 - [ ] Test API with mock data.
 

@@ -113,15 +113,28 @@ class VisionAnalysis {
 }
 
 class DetectedIngredient {
-  const DetectedIngredient({required this.name, required this.confidence});
+  const DetectedIngredient({
+    required this.name,
+    required this.confidence,
+    required this.quantity,
+    required this.expiryDate,
+  });
 
   factory DetectedIngredient.fromJson(Map<String, dynamic> json) {
     return DetectedIngredient(
       name: json['name'] as String? ?? '',
       confidence: (json['confidence'] as num?)?.toDouble() ?? 0,
+      quantity: _stringOrNull(json['quantity']),
+      expiryDate: _stringOrNull(json['expiryDate'] ?? json['expiry_date']),
     );
   }
 
   final String name;
   final double confidence;
+  final String? quantity;
+  final String? expiryDate;
+}
+
+String? _stringOrNull(Object? value) {
+  return value is String ? value : null;
 }

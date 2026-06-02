@@ -34,6 +34,8 @@ export const detectedIngredients = sqliteTable("detected_ingredients", {
     .references(() => scans.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   confidence: real("confidence"),
+  quantity: text("quantity"),
+  expiryDate: text("expiry_date"),
 });
 
 export const recipeSuggestions = sqliteTable("recipe_suggestions", {

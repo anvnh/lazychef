@@ -87,8 +87,10 @@ async function requestCloudflareAnalysis(
 ): Promise<CloudflareAiResponse | null> {
   const response = await runCloudflareVisionModel({
     prompt:
-      "Analyze this image and return ONLY a JSON object with this exact structure, no markdown, no explanation: " +
-      '{"ingredients": ["ingredient1", "ingredient2"]}',
+      "Identify visible food ingredients in this fridge or food image. " +
+      "Return ONLY compact JSON, no markdown and no explanation. " +
+      "Use lower-case ingredient names. " +
+      'Exact shape: {"ingredients":["ingredient1","ingredient2"]}',
     image: imageDataUri,
     max_tokens: 256,
     temperature: 0,
@@ -267,24 +269,22 @@ function readCloudflareResponse(result: unknown): unknown {
 function parseCloudflareIngredientResponse(
   text: string,
 ): CloudflareIngredientResponse {
-  try {
-    return JSON.parse(text) as CloudflareIngredientResponse;
-  } catch {
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new VisionAnalysisError(
-        "Cloudflare returned non-JSON analysis output",
-      );
-    }
+  const normalizedText = stripMarkdownCodeFence(text).trim();
+  const parsed =
+    parseJsonValue(normalizedText) ??
+    parseJsonValue(extractJsonObject(normalizedText)) ??
+    parseJsonValue(extractJsonArray(normalizedText));
 
-    try {
-      return JSON.parse(jsonMatch[0]) as CloudflareIngredientResponse;
-    } catch {
-      throw new VisionAnalysisError(
-        "Cloudflare returned malformed JSON output",
-      );
-    }
+  if (parsed) {
+    return coerceIngredientResponse(parsed);
   }
+
+  const ingredients = parseIngredientNamesFromText(normalizedText);
+  if (ingredients.length > 0) {
+    return { ingredients };
+  }
+
+  throw new VisionAnalysisError("Cloudflare returned no recognizable ingredients");
 }
 
 function normalizeIngredients(ingredients: unknown): DetectedIngredient[] {
@@ -296,7 +296,7 @@ function normalizeIngredients(ingredients: unknown): DetectedIngredient[] {
     new Set(
       ingredients
         .map(readIngredientName)
-        .map((name) => name.trim().toLowerCase())
+        .map(normalizeIngredientName)
         .filter(Boolean),
     ),
   )
@@ -318,4 +318,97 @@ function readIngredientName(value: unknown): string {
   }
 
   return "";
+}
+
+function stripMarkdownCodeFence(text: string): string {
+  const trimmed = text.trim();
+  const fenceMatch = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+
+  return fenceMatch?.[1]?.trim() ?? trimmed;
+}
+
+function parseJsonValue(text: string | null): unknown | null {
+  if (!text) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+function extractJsonObject(text: string): string | null {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+
+  return start >= 0 && end > start ? text.slice(start, end + 1) : null;
+}
+
+function extractJsonArray(text: string): string | null {
+  const start = text.indexOf("[");
+  const end = text.lastIndexOf("]");
+
+  return start >= 0 && end > start ? text.slice(start, end + 1) : null;
+}
+
+function coerceIngredientResponse(
+  value: unknown,
+): CloudflareIngredientResponse {
+  if (Array.isArray(value)) {
+    return { ingredients: value };
+  }
+
+  if (!value || typeof value !== "object") {
+    return { ingredients: [] };
+  }
+
+  const record = value as Record<string, unknown>;
+  const ingredients =
+    record.ingredients ??
+    record.detectedIngredients ??
+    record.items ??
+    record.foods ??
+    record.food_items;
+
+  if (Array.isArray(ingredients)) {
+    return { ingredients };
+  }
+
+  if (typeof ingredients === "string") {
+    return { ingredients: parseIngredientNamesFromText(ingredients) };
+  }
+
+  return { ingredients: [] };
+}
+
+function parseIngredientNamesFromText(text: string): string[] {
+  return text
+    .split(/\r?\n|,|;|\u2022/)
+    .map((line) =>
+      line
+        .replace(/^[-*\d.)\s]+/, "")
+        .replace(/^(ingredients?|foods?|detected ingredients?)\s*:\s*/i, "")
+        .trim(),
+    )
+    .flatMap((line) =>
+      line.includes(":")
+        ? line.split(":").slice(1).join(":").split(",")
+        : [line],
+    )
+    .map((name) => name.trim())
+    .filter((name) => name.length > 0 && name.length <= 60)
+    .map(normalizeIngredientName)
+    .filter((name) => name.length > 0 && name.length <= 60)
+    .filter((name) => !/[{}[\]]/.test(name));
+}
+
+function normalizeIngredientName(value: string): string {
+  return value
+    .replace(/["'`]+/g, "")
+    .replace(/[“”‘’]+/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
 }

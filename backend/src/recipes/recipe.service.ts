@@ -11,6 +11,7 @@ import {
 
 const cloudflareRecipeModel = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 const pexelsSearchUrl = "https://api.pexels.com/v1/search";
+const spoonacularApiUrl = "https://api.spoonacular.com";
 
 type CloudflareTextGenerationResponse = {
   success?: boolean;
@@ -33,6 +34,30 @@ type PexelsImageSearchResponse = {
   };
 };
 
+type SpoonacularIngredientMatch = {
+  id?: number;
+  title?: string;
+  image?: string;
+  missedIngredients?: Array<{
+    name?: string;
+  }>;
+};
+
+type SpoonacularRecipeInformation = {
+  id?: number;
+  title?: string;
+  image?: string;
+  summary?: string;
+  instructions?: string;
+  readyInMinutes?: number;
+  analyzedInstructions?: Array<{
+    steps?: Array<{
+      number?: number;
+      step?: string;
+    }>;
+  }>;
+};
+
 type RecipeImageUpdateCandidate = {
   id: string;
   title: string;
@@ -46,6 +71,7 @@ type GeneratedRecipe = {
   cookingTime: string;
   difficulty: "easy" | "medium" | "hard";
   missingIngredients: string[];
+  imageUrl?: string | null;
 };
 
 export type RecipeSuggestionResult = GeneratedRecipe & {
@@ -58,6 +84,8 @@ export type RecipeSuggestionResult = GeneratedRecipe & {
 export type RecipeIngredientResult = {
   name: string;
   confidence: number;
+  quantity: string | null;
+  expiryDate: string | null;
 };
 
 export type SuggestedRecipesResult = {
@@ -71,6 +99,8 @@ const recipeGenerationJobs = new Map<
   Promise<RecipeSuggestionResult[]>
 >();
 
+type RecipeGenerationIngredient = RecipeIngredientResult;
+
 export class RecipeGenerationError extends Error {
   constructor(message: string) {
     super(message);
@@ -80,9 +110,11 @@ export class RecipeGenerationError extends Error {
 
 export async function generateAndSaveRecipeSuggestions(
   scanId: string,
-  ingredientNames: string[],
 ): Promise<RecipeSuggestionResult[]> {
-  const normalizedIngredients = normalizeIngredientNames(ingredientNames);
+  const ingredients = await getScanIngredients(scanId);
+  const normalizedIngredients = normalizeIngredientNames(
+    ingredients.map((ingredient) => ingredient.name),
+  );
 
   if (normalizedIngredients.length === 0) {
     return [];
@@ -105,6 +137,7 @@ export async function generateAndSaveRecipeSuggestions(
 
   const job = generateAndPersistRecipeSuggestions(
     scanId,
+    ingredients,
     normalizedIngredients,
   );
   recipeGenerationJobs.set(scanId, job);
@@ -118,28 +151,26 @@ export async function generateAndSaveRecipeSuggestions(
   }
 }
 
-export function queueRecipeSuggestionsForScan(
-  scanId: string,
-  ingredientNames: string[],
-): void {
-  void generateAndSaveRecipeSuggestions(scanId, ingredientNames).catch(
-    (error) => {
-      console.error("Background recipe generation failed", error);
-    },
-  );
+export function queueRecipeSuggestionsForScan(scanId: string): void {
+  void generateAndSaveRecipeSuggestions(scanId).catch((error) => {
+    console.error("Background recipe generation failed", error);
+  });
 }
 
 async function generateAndPersistRecipeSuggestions(
   scanId: string,
+  ingredients: RecipeGenerationIngredient[],
   normalizedIngredients: string[],
 ): Promise<RecipeSuggestionResult[]> {
-  const generatedRecipes = await generateRecipes(normalizedIngredients);
+  const generatedRecipes = await generateRecipeSuggestions(ingredients);
 
   if (generatedRecipes.length === 0) {
     return [];
   }
 
-  const currentIngredients = await getScanIngredientNames(scanId);
+  const currentIngredients = normalizeIngredientNames(
+    (await getScanIngredients(scanId)).map((ingredient) => ingredient.name),
+  );
   if (!sameIngredients(normalizedIngredients, currentIngredients)) {
     return [];
   }
@@ -154,7 +185,7 @@ async function generateAndPersistRecipeSuggestions(
     cookingTime: recipe.cookingTime,
     difficulty: recipe.difficulty,
     missingIngredients: JSON.stringify(recipe.missingIngredients),
-    imageUrl: null,
+    imageUrl: recipe.imageUrl ?? null,
     viewCount: 0,
   }));
 
@@ -186,10 +217,7 @@ export async function suggestRecipesForLatestScan(
   }
 
   try {
-    const recipes = await generateAndSaveRecipeSuggestions(
-      latestScan.id,
-      ingredientRows.map((ingredient) => ingredient.name),
-    );
+    const recipes = await generateAndSaveRecipeSuggestions(latestScan.id);
 
     return { recipes, ingredients };
   } catch (error) {
@@ -370,9 +398,184 @@ async function getLatestUserScan(userId: string) {
   return latestScan;
 }
 
-async function generateRecipes(
-  ingredientNames: string[],
+async function generateRecipeSuggestions(
+  ingredients: RecipeGenerationIngredient[],
 ): Promise<GeneratedRecipe[]> {
+  const spoonacularRecipes = await fetchSpoonacularRecipes(ingredients);
+  if (spoonacularRecipes.length > 0) {
+    return spoonacularRecipes;
+  }
+
+  return generateRecipes(ingredients);
+}
+
+async function fetchSpoonacularRecipes(
+  ingredients: RecipeGenerationIngredient[],
+): Promise<GeneratedRecipe[]> {
+  const apiKey = readOptionalEnv("SPOONACULAR_API_KEY", "");
+  if (!apiKey) {
+    return [];
+  }
+
+  const ingredientNames = normalizeIngredientNames(
+    ingredients.map((ingredient) => ingredient.name),
+  );
+  if (ingredientNames.length === 0) {
+    return [];
+  }
+
+  try {
+    const matches = await findSpoonacularRecipesByIngredients({
+      apiKey,
+      ingredientNames,
+    });
+    const recipes = await Promise.all(
+      matches.slice(0, 5).map((match) =>
+        fetchSpoonacularRecipeInformation({
+          apiKey,
+          match,
+        }),
+      ),
+    );
+
+    return recipes
+      .filter((recipe): recipe is GeneratedRecipe => recipe !== null)
+      .slice(0, 5);
+  } catch (error) {
+    console.error("Spoonacular recipe lookup failed", error);
+    return [];
+  }
+}
+
+async function findSpoonacularRecipesByIngredients(input: {
+  apiKey: string;
+  ingredientNames: string[];
+}): Promise<SpoonacularIngredientMatch[]> {
+  const url = new URL("/recipes/findByIngredients", spoonacularApiUrl);
+  url.searchParams.set("apiKey", input.apiKey);
+  url.searchParams.set("ingredients", input.ingredientNames.join(","));
+  url.searchParams.set("number", "5");
+  url.searchParams.set("ranking", "2");
+  url.searchParams.set("ignorePantry", "true");
+
+  const response = await fetch(url);
+  const payload = (await response
+    .json()
+    .catch(() => null)) as unknown;
+
+  if (!response.ok || !Array.isArray(payload)) {
+    throw new RecipeGenerationError(
+      `Spoonacular ingredient search failed (${response.status})`,
+    );
+  }
+
+  return payload
+    .filter((recipe): recipe is SpoonacularIngredientMatch =>
+      Boolean(
+        recipe &&
+          typeof recipe === "object" &&
+          typeof (recipe as SpoonacularIngredientMatch).id === "number",
+      ),
+    )
+    .slice(0, 5);
+}
+
+async function fetchSpoonacularRecipeInformation(input: {
+  apiKey: string;
+  match: SpoonacularIngredientMatch;
+}): Promise<GeneratedRecipe | null> {
+  if (typeof input.match.id !== "number") {
+    return null;
+  }
+
+  const url = new URL(
+    `/recipes/${input.match.id}/information`,
+    spoonacularApiUrl,
+  );
+  url.searchParams.set("apiKey", input.apiKey);
+  url.searchParams.set("includeNutrition", "false");
+
+  const response = await fetch(url);
+  const payload = (await response
+    .json()
+    .catch(() => null)) as SpoonacularRecipeInformation | null;
+
+  if (!response.ok || !payload) {
+    throw new RecipeGenerationError(
+      `Spoonacular recipe information failed (${response.status})`,
+    );
+  }
+
+  return toGeneratedRecipeFromSpoonacular(input.match, payload);
+}
+
+function toGeneratedRecipeFromSpoonacular(
+  match: SpoonacularIngredientMatch,
+  recipe: SpoonacularRecipeInformation,
+): GeneratedRecipe | null {
+  const title = readString(recipe.title ?? match.title);
+  const instructions = readSpoonacularInstructions(recipe);
+
+  if (!title || !instructions) {
+    return null;
+  }
+
+  return {
+    title,
+    description:
+      stripHtml(recipe.summary ?? "") ||
+      `A real recipe matched from your available ingredients.`,
+    instructions,
+    cookingTime: recipe.readyInMinutes
+      ? `${recipe.readyInMinutes} minutes`
+      : "Timing not listed",
+    difficulty: difficultyFromCookingTime(recipe.readyInMinutes),
+    missingIngredients: (match.missedIngredients ?? [])
+      .map((ingredient) => readString(ingredient.name))
+      .filter(Boolean)
+      .slice(0, 8),
+    imageUrl: readString(recipe.image ?? match.image) || null,
+  };
+}
+
+function readSpoonacularInstructions(
+  recipe: SpoonacularRecipeInformation,
+): string {
+  const analyzedSteps = recipe.analyzedInstructions
+    ?.flatMap((instruction) => instruction.steps ?? [])
+    .map((step, index) => {
+      const text = readString(step.step);
+      const number =
+        typeof step.number === "number" && Number.isFinite(step.number)
+          ? step.number
+          : index + 1;
+
+      return text ? `${number}. ${text}` : "";
+    })
+    .filter(Boolean)
+    .join("\n");
+
+  if (analyzedSteps) {
+    return analyzedSteps;
+  }
+
+  return stripHtml(recipe.instructions ?? "");
+}
+
+function difficultyFromCookingTime(
+  readyInMinutes: number | undefined,
+): "easy" | "medium" | "hard" {
+  if (!readyInMinutes || readyInMinutes <= 30) {
+    return "easy";
+  }
+
+  return readyInMinutes <= 60 ? "medium" : "hard";
+}
+
+async function generateRecipes(
+  ingredients: RecipeGenerationIngredient[],
+): Promise<GeneratedRecipe[]> {
+  const ingredientList = formatRecipeIngredientList(ingredients);
   const response = await fetch(
     `https://api.cloudflare.com/client/v4/accounts/${readRequiredEnv(
       "CLOUDFLARE_ACCOUNT_ID",
@@ -393,8 +596,10 @@ async function generateRecipes(
           {
             role: "user",
             content:
-              `Given these available ingredients: ${ingredientNames.join(", ")}\n\n` +
+              `Given these available ingredients:\n${ingredientList}\n\n` +
               "Suggest 5 recipes using ONLY or MOSTLY these ingredients.\n" +
+              "Prioritize ingredients with the soonest expiry dates and use quantity notes when choosing recipes.\n" +
+              "Mention expiring ingredients naturally in the description when relevant.\n" +
               "Return ONLY a valid JSON array.\n" +
               "Each object must have:\n" +
               "- title: string\n" +
@@ -512,6 +717,10 @@ async function updateRecipeSuggestionImageUrls(
 ): Promise<void> {
   await Promise.all(
     recipes.map(async (recipe) => {
+      if (recipe.imageUrl) {
+        return;
+      }
+
       const imageUrl = await fetchRecipeImageUrl(recipe.title);
 
       if (!imageUrl) {
@@ -579,6 +788,8 @@ function toRecipeIngredientResult(
   return {
     name: ingredient.name,
     confidence: Number(ingredient.confidence ?? 0),
+    quantity: ingredient.quantity,
+    expiryDate: ingredient.expiryDate,
   };
 }
 
@@ -592,13 +803,32 @@ function normalizeIngredientNames(ingredientNames: string[]): string[] {
   );
 }
 
-async function getScanIngredientNames(scanId: string): Promise<string[]> {
+async function getScanIngredients(
+  scanId: string,
+): Promise<RecipeGenerationIngredient[]> {
   const rows = await getDb()
-    .select({ name: detectedIngredients.name })
+    .select()
     .from(detectedIngredients)
     .where(eq(detectedIngredients.scanId, scanId));
 
-  return normalizeIngredientNames(rows.map((ingredient) => ingredient.name));
+  return rows.map(toRecipeIngredientResult);
+}
+
+function formatRecipeIngredientList(
+  ingredients: RecipeGenerationIngredient[],
+): string {
+  return ingredients
+    .map((ingredient) => {
+      const details = [
+        ingredient.quantity ? `quantity: ${ingredient.quantity}` : null,
+        ingredient.expiryDate ? `expires: ${ingredient.expiryDate}` : null,
+      ].filter(Boolean);
+
+      return details.length > 0
+        ? `- ${ingredient.name} (${details.join(", ")})`
+        : `- ${ingredient.name}`;
+    })
+    .join("\n");
 }
 
 function sameIngredients(left: string[], right: string[]): boolean {
@@ -629,6 +859,17 @@ function parseMissingIngredients(value: string | null): string[] {
 
 function readString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function stripHtml(value: string): string {
+  return value
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function readInstructions(value: unknown): string {

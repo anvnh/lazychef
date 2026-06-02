@@ -207,7 +207,12 @@ class _IngredientsScreenState extends ConsumerState<IngredientsScreen> {
     final latestScan = scans.first;
     final ingredients = [
       ...latestScan.detectedIngredients.map(_scanIngredientUpdate),
-      ScanIngredientUpdate(name: ingredientName, confidence: null),
+      ScanIngredientUpdate(
+        name: ingredientName,
+        confidence: null,
+        quantity: null,
+        expiryDate: null,
+      ),
     ];
 
     await ref
@@ -237,6 +242,8 @@ class _IngredientsScreenState extends ConsumerState<IngredientsScreen> {
             return ScanIngredientUpdate(
               name: newName,
               confidence: scanIngredient.confidence,
+              quantity: scanIngredient.quantity,
+              expiryDate: scanIngredient.expiryDate,
             );
           }
 
@@ -966,6 +973,8 @@ ScanIngredientUpdate _scanIngredientUpdate(HistoryIngredient ingredient) {
   return ScanIngredientUpdate(
     name: ingredient.name,
     confidence: ingredient.confidence,
+    quantity: ingredient.quantity,
+    expiryDate: ingredient.expiryDate,
   );
 }
 

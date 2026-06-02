@@ -193,7 +193,7 @@ class _UploadedScanContentState extends ConsumerState<_UploadedScanContent> {
     });
   }
 
-  void _saveIngredient(String name) {
+  void _saveIngredientDraft(_IngredientDraft draft) {
     final activeEditorIndex = _activeEditorIndex;
     if (activeEditorIndex == null) {
       return;
@@ -201,10 +201,14 @@ class _UploadedScanContentState extends ConsumerState<_UploadedScanContent> {
 
     setState(() {
       if (activeEditorIndex == -1) {
-        _ingredients.add(_EditableIngredient.manual(name));
+        _ingredients.add(_EditableIngredient.manual(draft));
       } else if (activeEditorIndex < _ingredients.length) {
         final ingredient = _ingredients[activeEditorIndex];
-        _ingredients[activeEditorIndex] = ingredient.copyWith(name: name);
+        _ingredients[activeEditorIndex] = ingredient.copyWith(
+          name: draft.name,
+          quantity: draft.quantity,
+          expiryDate: draft.expiryDate,
+        );
       }
 
       _activeEditorIndex = null;
@@ -237,6 +241,8 @@ class _UploadedScanContentState extends ConsumerState<_UploadedScanContent> {
                   (ingredient) => ScanIngredientUpdate(
                     name: ingredient.name,
                     confidence: ingredient.confidence,
+                    quantity: ingredient.quantity,
+                    expiryDate: ingredient.expiryDate,
                   ),
                 )
                 .toList(),
@@ -292,8 +298,9 @@ class _UploadedScanContentState extends ConsumerState<_UploadedScanContent> {
         const SizedBox(height: 28),
         SectionTitle(
           eyebrow: 'Detected ingredients',
-          title: 'Review and correct the list',
-          subtitle: 'Change, add, or remove ingredients before using them.',
+          title: 'Review your inventory',
+          subtitle:
+              'Change ingredients, quantity, and expiry date before recipe ranking.',
           action: FilledButton.icon(
             onPressed: _startAddingIngredient,
             icon: const Icon(Icons.add_rounded),
@@ -304,9 +311,9 @@ class _UploadedScanContentState extends ConsumerState<_UploadedScanContent> {
         if (_activeEditorIndex != null) ...[
           _IngredientEditorCard(
             key: ValueKey(_activeEditorKey),
-            initialName: _activeEditorInitialName,
+            initialIngredient: _activeEditorInitialIngredient,
             actionLabel: _activeEditorIndex == -1 ? 'Add' : 'Save',
-            onSave: _saveIngredient,
+            onSave: _saveIngredientDraft,
             onCancel: _cancelIngredientEditor,
           ),
           const SizedBox(height: 12),
@@ -348,15 +355,15 @@ class _UploadedScanContentState extends ConsumerState<_UploadedScanContent> {
     );
   }
 
-  String get _activeEditorInitialName {
+  _EditableIngredient? get _activeEditorInitialIngredient {
     final activeEditorIndex = _activeEditorIndex;
     if (activeEditorIndex == null ||
         activeEditorIndex == -1 ||
         activeEditorIndex >= _ingredients.length) {
-      return '';
+      return null;
     }
 
-    return _ingredients[activeEditorIndex].name;
+    return _ingredients[activeEditorIndex];
   }
 
   String get _activeEditorKey {
@@ -713,6 +720,8 @@ class _DetectedIngredientTile extends StatelessWidget {
     final confidenceLabel = confidence == null
         ? 'Manual'
         : '${(confidence * 100).round()}%';
+    final quantity = ingredient.quantity?.trim();
+    final expiryDate = ingredient.expiryDate?.trim();
 
     return Card(
       child: Padding(
@@ -720,19 +729,34 @@ class _DetectedIngredientTile extends StatelessWidget {
         child: Row(
           children: [
             Expanded(
-              child: Text(
-                ingredient.name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleMedium,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    ingredient.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _metadataPill(confidenceLabel),
+                      if (quantity != null && quantity.isNotEmpty)
+                        _metadataPill(quantity),
+                      if (expiryDate != null && expiryDate.isNotEmpty)
+                        _metadataPill('Expires $expiryDate'),
+                    ],
+                  ),
+                ],
               ),
             ),
             const SizedBox(width: 8),
-            _metadataPill(confidenceLabel),
-            const SizedBox(width: 4),
             IconButton(
               onPressed: onEdit,
-              tooltip: 'Change ingredient',
+              tooltip: 'Edit inventory item',
               icon: const Icon(Icons.edit_outlined),
             ),
             IconButton(
@@ -752,16 +776,16 @@ class _DetectedIngredientTile extends StatelessWidget {
 
 class _IngredientEditorCard extends StatefulWidget {
   const _IngredientEditorCard({
-    required this.initialName,
+    required this.initialIngredient,
     required this.actionLabel,
     required this.onSave,
     required this.onCancel,
     super.key,
   });
 
-  final String initialName;
+  final _EditableIngredient? initialIngredient;
   final String actionLabel;
-  final ValueChanged<String> onSave;
+  final ValueChanged<_IngredientDraft> onSave;
   final VoidCallback onCancel;
 
   @override
@@ -769,25 +793,67 @@ class _IngredientEditorCard extends StatefulWidget {
 }
 
 class _IngredientEditorCardState extends State<_IngredientEditorCard> {
-  late final TextEditingController _controller;
+  late final TextEditingController _nameController;
+  late final TextEditingController _quantityController;
+  late final TextEditingController _expiryDateController;
   final _formKey = GlobalKey<FormState>();
 
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController(text: widget.initialName);
+    final ingredient = widget.initialIngredient;
+    _nameController = TextEditingController(text: ingredient?.name ?? '');
+    _quantityController = TextEditingController(
+      text: ingredient?.quantity ?? '',
+    );
+    _expiryDateController = TextEditingController(
+      text: ingredient?.expiryDate ?? '',
+    );
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _nameController.dispose();
+    _quantityController.dispose();
+    _expiryDateController.dispose();
     super.dispose();
   }
 
   void _save() {
     if (_formKey.currentState?.validate() ?? false) {
-      widget.onSave(_controller.text.trim());
+      widget.onSave(
+        _IngredientDraft(
+          name: _nameController.text.trim(),
+          quantity: _emptyToNull(_quantityController.text),
+          expiryDate: _emptyToNull(_expiryDateController.text),
+        ),
+      );
     }
+  }
+
+  Future<void> _pickExpiryDate() async {
+    final now = DateTime.now();
+    final initialDate = DateTime.tryParse(_expiryDateController.text) ?? now;
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: initialDate.isBefore(now) ? now : initialDate,
+      firstDate: DateTime(now.year - 1),
+      lastDate: DateTime(now.year + 5),
+    );
+
+    if (pickedDate == null) {
+      return;
+    }
+
+    setState(() {
+      _expiryDateController.text = _dateValue(pickedDate);
+    });
+  }
+
+  void _clearExpiryDate() {
+    setState(() {
+      _expiryDateController.clear();
+    });
   }
 
   @override
@@ -806,7 +872,7 @@ class _IngredientEditorCardState extends State<_IngredientEditorCard> {
               ),
               const SizedBox(height: 12),
               TextFormField(
-                controller: _controller,
+                controller: _nameController,
                 autofocus: true,
                 textCapitalization: TextCapitalization.words,
                 decoration: const InputDecoration(
@@ -822,6 +888,35 @@ class _IngredientEditorCardState extends State<_IngredientEditorCard> {
                   return null;
                 },
                 onFieldSubmitted: (_) => _save(),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _quantityController,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(
+                  labelText: 'Quantity',
+                  hintText: 'e.g. 2 pieces, 500g, 1 bunch',
+                  prefixIcon: Icon(Icons.scale_outlined),
+                ),
+                textInputAction: TextInputAction.next,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _expiryDateController,
+                readOnly: true,
+                decoration: InputDecoration(
+                  labelText: 'Expiry date',
+                  hintText: 'Pick a date',
+                  prefixIcon: const Icon(Icons.event_outlined),
+                  suffixIcon: _expiryDateController.text.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: 'Clear expiry date',
+                          onPressed: _clearExpiryDate,
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                ),
+                onTap: _pickExpiryDate,
               ),
               const SizedBox(height: 14),
               Row(
@@ -849,27 +944,80 @@ class _IngredientEditorCardState extends State<_IngredientEditorCard> {
   }
 }
 
+class _IngredientDraft {
+  const _IngredientDraft({
+    required this.name,
+    required this.quantity,
+    required this.expiryDate,
+  });
+
+  final String name;
+  final String? quantity;
+  final String? expiryDate;
+}
+
 class _EditableIngredient {
-  const _EditableIngredient({required this.name, required this.confidence});
+  const _EditableIngredient({
+    required this.name,
+    required this.confidence,
+    required this.quantity,
+    required this.expiryDate,
+  });
 
   factory _EditableIngredient.fromDetected(DetectedIngredient ingredient) {
     return _EditableIngredient(
-      name: ingredient.name,
+      name: _cleanIngredientName(ingredient.name),
       confidence: ingredient.confidence,
+      quantity: ingredient.quantity,
+      expiryDate: ingredient.expiryDate,
     );
   }
 
-  factory _EditableIngredient.manual(String name) {
-    return _EditableIngredient(name: name, confidence: null);
+  factory _EditableIngredient.manual(_IngredientDraft draft) {
+    return _EditableIngredient(
+      name: draft.name,
+      confidence: null,
+      quantity: draft.quantity,
+      expiryDate: draft.expiryDate,
+    );
   }
 
   final String name;
   final double? confidence;
+  final String? quantity;
+  final String? expiryDate;
 
-  _EditableIngredient copyWith({String? name}) {
-    return _EditableIngredient(name: name ?? this.name, confidence: confidence);
+  _EditableIngredient copyWith({
+    String? name,
+    String? quantity,
+    String? expiryDate,
+  }) {
+    return _EditableIngredient(
+      name: name ?? this.name,
+      confidence: confidence,
+      quantity: quantity,
+      expiryDate: expiryDate,
+    );
   }
 }
+
+String? _emptyToNull(String value) {
+  final trimmed = value.trim();
+  return trimmed.isEmpty ? null : trimmed;
+}
+
+String _cleanIngredientName(String value) {
+  return value
+      .replaceAll(RegExp(r'''["'`“”‘’]+'''), '')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+}
+
+String _dateValue(DateTime date) {
+  return '${date.year}-${_twoDigits(date.month)}-${_twoDigits(date.day)}';
+}
+
+String _twoDigits(int value) => value.toString().padLeft(2, '0');
 
 Widget _metadataPill(String label) {
   return Container(

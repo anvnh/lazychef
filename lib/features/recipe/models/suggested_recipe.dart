@@ -60,24 +60,38 @@ class SuggestedRecipesResponse {
 }
 
 class SuggestedIngredient {
-  const SuggestedIngredient({required this.name, required this.confidence});
+  const SuggestedIngredient({
+    required this.name,
+    required this.confidence,
+    required this.quantity,
+    required this.expiryDate,
+  });
 
   factory SuggestedIngredient.fromJson(Map<String, dynamic> json) {
     return SuggestedIngredient(
       name: json['name'] as String? ?? '',
       confidence: (json['confidence'] as num?)?.toDouble() ?? 0,
+      quantity: _stringOrNull(json['quantity']),
+      expiryDate: _stringOrNull(json['expiryDate'] ?? json['expiry_date']),
     );
   }
 
   final String name;
   final double confidence;
+  final String? quantity;
+  final String? expiryDate;
 
   String get displayName {
-    if (name.isEmpty) {
+    final normalizedName = name
+        .replaceAll(RegExp(r'''["'`“”‘’]+'''), '')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+
+    if (normalizedName.isEmpty) {
       return 'Ingredient';
     }
 
-    return name
+    return normalizedName
         .split(' ')
         .where((part) => part.isNotEmpty)
         .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
@@ -90,6 +104,20 @@ class SuggestedIngredient {
     }
 
     return '${(confidence * 100).round()}% match';
+  }
+
+  String get inventoryLabel {
+    final labels = [
+      if (quantity != null && quantity!.trim().isNotEmpty) quantity!.trim(),
+      if (expiryDate != null && expiryDate!.trim().isNotEmpty)
+        'Exp ${expiryDate!.trim()}',
+    ];
+
+    if (labels.isNotEmpty) {
+      return labels.join(' | ');
+    }
+
+    return confidenceLabel;
   }
 }
 
@@ -107,4 +135,8 @@ int _intValue(Object? value) {
   }
 
   return 0;
+}
+
+String? _stringOrNull(Object? value) {
+  return value is String ? value : null;
 }

@@ -737,34 +737,6 @@ class _MostViewedRecipeImage extends StatelessWidget {
   }
 }
 
-class _RecipeAuthor extends StatelessWidget {
-  const _RecipeAuthor({required this.author});
-
-  final String author;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const CircleAvatar(
-          radius: 11,
-          backgroundColor: Color(0xFFD1D8CC),
-          child: Icon(Icons.person, size: 13, color: Color(0xFF596150)),
-        ),
-        const SizedBox(width: 8),
-        Flexible(
-          child: Text(
-            author,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _RecipeViewsBadge extends StatelessWidget {
   const _RecipeViewsBadge({required this.viewCount});
 
@@ -1186,12 +1158,7 @@ class _NoCollectionRecipes extends StatelessWidget {
   }
 }
 
-Widget _buildIngredientItem(
-  String name,
-  String amount,
-  Color color,
-  IconData icon,
-) {
+Widget _buildIngredientItem(String name, String _, Color color, IconData icon) {
   return Container(
     width: 100,
     margin: const EdgeInsets.only(bottom: 8),
@@ -1217,19 +1184,11 @@ Widget _buildIngredientItem(
         Text(
           name,
           textAlign: TextAlign.center,
-          maxLines: 1,
+          maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 14,
-          ), // Tăng size chữ
-        ),
-        const SizedBox(height: 4),
-        Text(
-          amount,
-          style: TextStyle(
-            color: Colors.grey.shade600,
-            fontSize: 13,
           ), // Tăng size chữ
         ),
       ],
@@ -1438,7 +1397,7 @@ void _showSuggestedRecipe(
 
                             return _buildIngredientItem(
                               ingredient.displayName,
-                              ingredient.confidenceLabel,
+                              ingredient.inventoryLabel,
                               _ingredientColor(entry.key),
                               _ingredientIcon(entry.key),
                             );
@@ -1458,7 +1417,7 @@ void _showSuggestedRecipe(
                                 padding: const EdgeInsets.only(right: 16.0),
                                 child: _buildIngredientItem(
                                   ingredient.displayName,
-                                  ingredient.confidenceLabel,
+                                  ingredient.inventoryLabel,
                                   _ingredientColor(index),
                                   _ingredientIcon(index),
                                 ),
@@ -1689,7 +1648,7 @@ void _showCollectionRecipe(
 
                           return _buildIngredientItem(
                             ingredient.displayName,
-                            ingredient.confidenceLabel,
+                            ingredient.inventoryLabel,
                             _ingredientColor(entry.key),
                             _ingredientIcon(entry.key),
                           );

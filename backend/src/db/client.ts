@@ -46,11 +46,15 @@ export async function checkDatabaseConnection(): Promise<number> {
 }
 
 export async function ensureDatabaseSchema(): Promise<void> {
-  const columns = await getTursoClient().execute(
+  const recipeColumns = await getTursoClient().execute(
     "PRAGMA table_info(recipe_suggestions)",
   );
-  const hasImageUrl = columns.rows.some((row) => row.name === "image_url");
-  const hasViewCount = columns.rows.some((row) => row.name === "view_count");
+  const hasImageUrl = recipeColumns.rows.some(
+    (row) => row.name === "image_url",
+  );
+  const hasViewCount = recipeColumns.rows.some(
+    (row) => row.name === "view_count",
+  );
 
   if (!hasImageUrl) {
     await getTursoClient().execute(
@@ -61,6 +65,28 @@ export async function ensureDatabaseSchema(): Promise<void> {
   if (!hasViewCount) {
     await getTursoClient().execute(
       "ALTER TABLE recipe_suggestions ADD COLUMN view_count INTEGER NOT NULL DEFAULT 0",
+    );
+  }
+
+  const ingredientColumns = await getTursoClient().execute(
+    "PRAGMA table_info(detected_ingredients)",
+  );
+  const hasQuantity = ingredientColumns.rows.some(
+    (row) => row.name === "quantity",
+  );
+  const hasExpiryDate = ingredientColumns.rows.some(
+    (row) => row.name === "expiry_date",
+  );
+
+  if (!hasQuantity) {
+    await getTursoClient().execute(
+      "ALTER TABLE detected_ingredients ADD COLUMN quantity TEXT",
+    );
+  }
+
+  if (!hasExpiryDate) {
+    await getTursoClient().execute(
+      "ALTER TABLE detected_ingredients ADD COLUMN expiry_date TEXT",
     );
   }
 

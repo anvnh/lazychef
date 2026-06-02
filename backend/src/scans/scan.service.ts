@@ -32,6 +32,8 @@ export type ScanHistoryItem = Required<SavedScan> & {
 export type EditableIngredient = {
   name: string;
   confidence: number | null;
+  quantity: string | null;
+  expiryDate: string | null;
 };
 
 export async function saveScanResult(input: {
@@ -60,6 +62,8 @@ export async function saveScanResult(input: {
         scanId,
         name: ingredient.name,
         confidence: ingredient.confidence,
+        quantity: null,
+        expiryDate: null,
       })),
     );
   });
@@ -105,6 +109,8 @@ export async function listUserScanHistory(
       name: ingredient.name,
       confidence:
         ingredient.confidence === null ? null : Number(ingredient.confidence),
+      quantity: ingredient.quantity,
+      expiryDate: ingredient.expiryDate,
     });
     ingredientsByScanId.set(ingredient.scanId, scanIngredients);
   }
@@ -175,6 +181,8 @@ export async function replaceScanIngredients(input: {
         scanId: input.scanId,
         name: ingredient.name,
         confidence: ingredient.confidence,
+        quantity: ingredient.quantity,
+        expiryDate: ingredient.expiryDate,
       })),
     );
   });
@@ -189,7 +197,7 @@ function normalizeEditableIngredients(
   const normalized: EditableIngredient[] = [];
 
   for (const ingredient of ingredients) {
-    const name = ingredient.name.trim();
+    const name = normalizeIngredientName(ingredient.name);
     const normalizedName = name.toLocaleLowerCase();
 
     if (!name || seenNames.has(normalizedName)) {
@@ -203,10 +211,46 @@ function normalizeEditableIngredients(
         typeof ingredient.confidence === "number"
           ? Math.max(0, Math.min(1, ingredient.confidence))
           : null,
+      quantity: normalizeOptionalText(ingredient.quantity, 40),
+      expiryDate: normalizeExpiryDate(ingredient.expiryDate),
     });
   }
 
   return normalized;
+}
+
+function normalizeIngredientName(value: string): string {
+  return value
+    .replace(/["'`]+/g, "")
+    .replace(/[“”‘’]+/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeOptionalText(
+  value: string | null,
+  maxLength: number,
+): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const text = value.trim();
+  return text ? text.slice(0, maxLength) : null;
+}
+
+function normalizeExpiryDate(value: string | null): string | null {
+  const text = normalizeOptionalText(value, 10);
+  if (!text || !/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    return null;
+  }
+
+  const date = new Date(`${text}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return text;
 }
 
 function parseMissingIngredients(value: string | null): string[] {

@@ -123,6 +123,8 @@ class RecipeCollectionItem {
             (ingredient) => {
               'name': ingredient.name,
               'confidence': ingredient.confidence,
+              'quantity': ingredient.quantity,
+              'expiryDate': ingredient.expiryDate,
             },
           )
           .toList(),
