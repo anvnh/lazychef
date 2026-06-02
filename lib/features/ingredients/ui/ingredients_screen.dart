@@ -81,10 +81,10 @@ class _IngredientsScreenState extends ConsumerState<IngredientsScreen> {
   }
 
   Future<void> _saveIngredient({
-    required String name,
+    required _InventoryIngredientDraft draft,
     required List<HistoryScan> scans,
   }) async {
-    final ingredientName = name.trim();
+    final ingredientName = draft.name.trim();
     if (ingredientName.isEmpty || _isSavingIngredient) {
       return;
     }
@@ -96,11 +96,11 @@ class _IngredientsScreenState extends ConsumerState<IngredientsScreen> {
     try {
       final editingIngredient = _editingIngredient;
       if (_isAddingIngredient) {
-        await _addIngredientToLatestScan(ingredientName, scans);
+        await _addIngredientToLatestScan(draft, scans);
       } else if (editingIngredient != null) {
-        await _renameIngredientInScans(
+        await _updateIngredientInScans(
           ingredient: editingIngredient,
-          newName: ingredientName,
+          draft: draft,
           scans: scans,
         );
       }
@@ -195,7 +195,7 @@ class _IngredientsScreenState extends ConsumerState<IngredientsScreen> {
   }
 
   Future<void> _addIngredientToLatestScan(
-    String ingredientName,
+    _InventoryIngredientDraft draft,
     List<HistoryScan> scans,
   ) async {
     if (scans.isEmpty) {
@@ -208,10 +208,10 @@ class _IngredientsScreenState extends ConsumerState<IngredientsScreen> {
     final ingredients = [
       ...latestScan.detectedIngredients.map(_scanIngredientUpdate),
       ScanIngredientUpdate(
-        name: ingredientName,
+        name: draft.name,
         confidence: null,
-        quantity: null,
-        expiryDate: null,
+        quantity: draft.quantity,
+        expiryDate: draft.expiryDate,
       ),
     ];
 
@@ -220,9 +220,9 @@ class _IngredientsScreenState extends ConsumerState<IngredientsScreen> {
         .updateScanIngredients(scanId: latestScan.id, ingredients: ingredients);
   }
 
-  Future<void> _renameIngredientInScans({
+  Future<void> _updateIngredientInScans({
     required _IngredientInventoryItem ingredient,
-    required String newName,
+    required _InventoryIngredientDraft draft,
     required List<HistoryScan> scans,
   }) async {
     final repository = ref.read(scanRepositoryProvider);
@@ -240,10 +240,10 @@ class _IngredientsScreenState extends ConsumerState<IngredientsScreen> {
         ingredients: scan.detectedIngredients.map((scanIngredient) {
           if (scanIngredient.name.toLowerCase().trim() == targetName) {
             return ScanIngredientUpdate(
-              name: newName,
+              name: draft.name,
               confidence: scanIngredient.confidence,
-              quantity: scanIngredient.quantity,
-              expiryDate: scanIngredient.expiryDate,
+              quantity: draft.quantity,
+              expiryDate: draft.expiryDate,
             );
           }
 
@@ -356,11 +356,11 @@ class _IngredientsScreenState extends ConsumerState<IngredientsScreen> {
                           key: ValueKey(
                             _editingIngredient?.name ?? 'add-ingredient',
                           ),
-                          initialName: _editingIngredient?.displayName ?? '',
+                          initialIngredient: _editingIngredient,
                           actionLabel: _isAddingIngredient ? 'Add' : 'Save',
                           isSaving: _isSavingIngredient,
-                          onSave: (name) {
-                            _saveIngredient(name: name, scans: scans);
+                          onSave: (draft) {
+                            _saveIngredient(draft: draft, scans: scans);
                           },
                           onCancel: _cancelIngredientEditor,
                         ),
@@ -477,7 +477,7 @@ class _IngredientsGrid extends StatelessWidget {
               physics: const NeverScrollableScrollPhysics(),
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: crossAxisCount,
-                childAspectRatio: 0.86,
+                mainAxisExtent: 224,
                 crossAxisSpacing: 14,
                 mainAxisSpacing: 14,
               ),
@@ -515,6 +515,8 @@ class _IngredientCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final iconSpec = _ingredientIconSpec(ingredient.name);
+    final quantity = ingredient.quantity?.trim();
+    final expiryDate = ingredient.expiryDate?.trim();
 
     return Card(
       child: Padding(
@@ -599,6 +601,20 @@ class _IngredientCard extends StatelessWidget {
               style: textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
+            if ((quantity != null && quantity.isNotEmpty) ||
+                (expiryDate != null && expiryDate.isNotEmpty)) ...[
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  if (quantity != null && quantity.isNotEmpty)
+                    _inventoryPill(quantity),
+                  if (expiryDate != null && expiryDate.isNotEmpty)
+                    _inventoryPill('Exp $expiryDate'),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
             Text(
               'Seen in ${ingredient.scanCount} ${ingredient.scanCount == 1 ? 'scan' : 'scans'}',
               maxLines: 1,
@@ -637,7 +653,7 @@ class _IngredientCard extends StatelessWidget {
 
 class _InventoryIngredientEditorCard extends StatefulWidget {
   const _InventoryIngredientEditorCard({
-    required this.initialName,
+    required this.initialIngredient,
     required this.actionLabel,
     required this.isSaving,
     required this.onSave,
@@ -645,10 +661,10 @@ class _InventoryIngredientEditorCard extends StatefulWidget {
     super.key,
   });
 
-  final String initialName;
+  final _IngredientInventoryItem? initialIngredient;
   final String actionLabel;
   final bool isSaving;
-  final ValueChanged<String> onSave;
+  final ValueChanged<_InventoryIngredientDraft> onSave;
   final VoidCallback onCancel;
 
   @override
@@ -658,18 +674,31 @@ class _InventoryIngredientEditorCard extends StatefulWidget {
 
 class _InventoryIngredientEditorCardState
     extends State<_InventoryIngredientEditorCard> {
-  late final TextEditingController _controller;
+  late final TextEditingController _nameController;
+  late final TextEditingController _quantityController;
+  late final TextEditingController _expiryDateController;
   final _formKey = GlobalKey<FormState>();
 
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController(text: widget.initialName);
+    final ingredient = widget.initialIngredient;
+    _nameController = TextEditingController(
+      text: ingredient?.displayName ?? '',
+    );
+    _quantityController = TextEditingController(
+      text: ingredient?.quantity ?? '',
+    );
+    _expiryDateController = TextEditingController(
+      text: ingredient?.expiryDate ?? '',
+    );
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _nameController.dispose();
+    _quantityController.dispose();
+    _expiryDateController.dispose();
     super.dispose();
   }
 
@@ -679,8 +708,39 @@ class _InventoryIngredientEditorCardState
     }
 
     if (_formKey.currentState?.validate() ?? false) {
-      widget.onSave(_controller.text.trim());
+      widget.onSave(
+        _InventoryIngredientDraft(
+          name: _nameController.text.trim(),
+          quantity: _emptyToNull(_quantityController.text),
+          expiryDate: _emptyToNull(_expiryDateController.text),
+        ),
+      );
     }
+  }
+
+  Future<void> _pickExpiryDate() async {
+    final now = DateTime.now();
+    final initialDate = DateTime.tryParse(_expiryDateController.text) ?? now;
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: initialDate.isBefore(now) ? now : initialDate,
+      firstDate: DateTime(now.year - 1),
+      lastDate: DateTime(now.year + 5),
+    );
+
+    if (pickedDate == null) {
+      return;
+    }
+
+    setState(() {
+      _expiryDateController.text = _dateValue(pickedDate);
+    });
+  }
+
+  void _clearExpiryDate() {
+    setState(() {
+      _expiryDateController.clear();
+    });
   }
 
   @override
@@ -699,11 +759,11 @@ class _InventoryIngredientEditorCardState
               ),
               const SizedBox(height: 12),
               TextFormField(
-                controller: _controller,
+                controller: _nameController,
                 enabled: !widget.isSaving,
                 autofocus: true,
                 textCapitalization: TextCapitalization.words,
-                textInputAction: TextInputAction.done,
+                textInputAction: TextInputAction.next,
                 decoration: const InputDecoration(
                   labelText: 'Ingredient name',
                   prefixIcon: Icon(Icons.restaurant_menu_rounded),
@@ -716,6 +776,37 @@ class _InventoryIngredientEditorCardState
                   return null;
                 },
                 onFieldSubmitted: (_) => _save(),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _quantityController,
+                enabled: !widget.isSaving,
+                textCapitalization: TextCapitalization.sentences,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(
+                  labelText: 'Quantity',
+                  hintText: 'e.g. 2 pieces, 500g, 1 bunch',
+                  prefixIcon: Icon(Icons.scale_outlined),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _expiryDateController,
+                enabled: !widget.isSaving,
+                readOnly: true,
+                decoration: InputDecoration(
+                  labelText: 'Expiry date',
+                  hintText: 'Pick a date',
+                  prefixIcon: const Icon(Icons.event_outlined),
+                  suffixIcon: _expiryDateController.text.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: 'Clear expiry date',
+                          onPressed: _clearExpiryDate,
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                ),
+                onTap: widget.isSaving ? null : _pickExpiryDate,
               ),
               const SizedBox(height: 14),
               Row(
@@ -889,6 +980,18 @@ class _NoMatchingIngredients extends StatelessWidget {
   }
 }
 
+class _InventoryIngredientDraft {
+  const _InventoryIngredientDraft({
+    required this.name,
+    required this.quantity,
+    required this.expiryDate,
+  });
+
+  final String name;
+  final String? quantity;
+  final String? expiryDate;
+}
+
 List<_IngredientInventoryItem> _filterIngredients({
   required List<HistoryScan> scans,
   required String query,
@@ -959,9 +1062,10 @@ bool _matchesIngredientSearch({
     return true;
   }
 
-  final searchText = '${ingredient.name} ${ingredient.displayName}'
-      .toLowerCase()
-      .trim();
+  final searchText =
+      '${ingredient.name} ${ingredient.displayName} ${ingredient.quantity ?? ''} ${ingredient.expiryDate ?? ''}'
+          .toLowerCase()
+          .trim();
   final queryTerms = normalizedQuery
       .split(RegExp(r'\s+'))
       .where((term) => term.isNotEmpty);
@@ -975,6 +1079,36 @@ ScanIngredientUpdate _scanIngredientUpdate(HistoryIngredient ingredient) {
     confidence: ingredient.confidence,
     quantity: ingredient.quantity,
     expiryDate: ingredient.expiryDate,
+  );
+}
+
+String? _emptyToNull(String value) {
+  final trimmed = value.trim();
+  return trimmed.isEmpty ? null : trimmed;
+}
+
+String _dateValue(DateTime date) {
+  return '${date.year}-${_twoDigits(date.month)}-${_twoDigits(date.day)}';
+}
+
+Widget _inventoryPill(String label) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF4F6F1),
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: const Color(0xFFCAD3CA)),
+    ),
+    child: Text(
+      label,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(
+        color: Color(0xFF6A5D51),
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
   );
 }
 
@@ -1310,6 +1444,11 @@ List<_IngredientInventoryItem> _buildInventory(List<HistoryScan> scans) {
       if (createdDate != null &&
           (item.lastSeen == null || createdDate.isAfter(item.lastSeen!))) {
         item.lastSeen = createdDate;
+        item.quantity = ingredient.quantity;
+        item.expiryDate = ingredient.expiryDate;
+      } else if (item.lastSeen == null) {
+        item.quantity ??= ingredient.quantity;
+        item.expiryDate ??= ingredient.expiryDate;
       }
     }
   }
@@ -1355,6 +1494,8 @@ class _MutableIngredientInventoryItem {
   double bestConfidence = 0;
   bool hasManualIngredient = false;
   DateTime? lastSeen;
+  String? quantity;
+  String? expiryDate;
 }
 
 class _IngredientInventoryItem {
@@ -1365,6 +1506,8 @@ class _IngredientInventoryItem {
     required this.bestConfidence,
     required this.hasManualIngredient,
     required this.lastSeen,
+    required this.quantity,
+    required this.expiryDate,
   });
 
   factory _IngredientInventoryItem.fromMutable(
@@ -1377,6 +1520,8 @@ class _IngredientInventoryItem {
       bestConfidence: item.bestConfidence.clamp(0, 1),
       hasManualIngredient: item.hasManualIngredient,
       lastSeen: item.lastSeen,
+      quantity: item.quantity,
+      expiryDate: item.expiryDate,
     );
   }
 
@@ -1386,6 +1531,8 @@ class _IngredientInventoryItem {
   final double bestConfidence;
   final bool hasManualIngredient;
   final DateTime? lastSeen;
+  final String? quantity;
+  final String? expiryDate;
 
   int get scanCount => scanIds.length;
   int get confidencePercent => (bestConfidence * 100).round();
