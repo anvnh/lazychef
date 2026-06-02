@@ -50,10 +50,17 @@ export async function ensureDatabaseSchema(): Promise<void> {
     "PRAGMA table_info(recipe_suggestions)",
   );
   const hasImageUrl = columns.rows.some((row) => row.name === "image_url");
+  const hasViewCount = columns.rows.some((row) => row.name === "view_count");
 
   if (!hasImageUrl) {
     await getTursoClient().execute(
       "ALTER TABLE recipe_suggestions ADD COLUMN image_url TEXT",
+    );
+  }
+
+  if (!hasViewCount) {
+    await getTursoClient().execute(
+      "ALTER TABLE recipe_suggestions ADD COLUMN view_count INTEGER NOT NULL DEFAULT 0",
     );
   }
 

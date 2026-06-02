@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lazychef/core/router/app_router.dart';
 import 'package:lazychef/core/widgets/app_bottom_bar.dart';
 import 'package:lazychef/core/widgets/app_button.dart';
+import 'package:lazychef/features/recipe/data/recipe_repository.dart';
 import 'package:lazychef/features/recipe/models/recipe_collection_item.dart';
 import 'package:lazychef/features/recipe/models/suggested_recipe.dart';
 import 'package:lazychef/features/recipe/providers/recipe_collection_provider.dart';
@@ -35,7 +36,7 @@ class RecipeScreen extends ConsumerWidget {
               const SizedBox(height: 32),
               _buildMyCollection(context, ref),
               const SizedBox(height: 32),
-              _buildMostViewedRecipes(),
+              _buildMostViewedRecipes(context, ref),
             ],
           ),
         ),
@@ -230,11 +231,14 @@ class RecipeScreen extends ConsumerWidget {
                             .read(favoriteRecipesProvider.notifier)
                             .toggleFavorite(collectionItem);
                       },
-                      onTap: () => _showSuggestedRecipe(
-                        context,
-                        entry.value,
-                        response.ingredients,
-                      ),
+                      onTap: () {
+                        _recordRecipeView(ref, collectionItem.id);
+                        _showSuggestedRecipe(
+                          context,
+                          entry.value,
+                          response.ingredients,
+                        );
+                      },
                     ),
                   );
                 }).toList(),
@@ -294,6 +298,7 @@ class RecipeScreen extends ConsumerWidget {
                             .toggleFavorite(recipe);
                       },
                       onTap: () {
+                        _recordRecipeView(ref, recipe.id);
                         _showCollectionRecipe(context, recipe, isFavorite);
                       },
                     ),
@@ -440,7 +445,48 @@ class RecipeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildMostViewedRecipes() {
+  Widget _buildMostViewedRecipes(BuildContext context, WidgetRef ref) {
+    final mostViewedRecipes = ref.watch(mostViewedRecipesProvider);
+    final favoriteRecipes = ref.watch(favoriteRecipesProvider).asData?.value;
+
+    return _MostViewedRecipesSection(
+      recipes: mostViewedRecipes,
+      favoriteRecipes: favoriteRecipes ?? const {},
+      onRetry: () {
+        ref.invalidate(mostViewedRecipesProvider);
+      },
+      onFavoritePressed: (recipe) {
+        ref.read(favoriteRecipesProvider.notifier).toggleFavorite(recipe);
+      },
+      onRecipeTap: (recipe) {
+        _recordRecipeView(ref, recipe.id);
+        _showCollectionRecipe(
+          context,
+          recipe,
+          favoriteRecipes?.containsKey(recipe.id) ?? false,
+        );
+      },
+    );
+  }
+}
+
+class _MostViewedRecipesSection extends StatelessWidget {
+  const _MostViewedRecipesSection({
+    required this.recipes,
+    required this.favoriteRecipes,
+    required this.onRetry,
+    required this.onFavoritePressed,
+    required this.onRecipeTap,
+  });
+
+  final AsyncValue<List<RecipeCollectionItem>> recipes;
+  final Map<String, RecipeCollectionItem> favoriteRecipes;
+  final VoidCallback onRetry;
+  final ValueChanged<RecipeCollectionItem> onFavoritePressed;
+  final ValueChanged<RecipeCollectionItem> onRecipeTap;
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -449,100 +495,302 @@ class RecipeScreen extends ConsumerWidget {
           style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
-        Container(
+        recipes.when(
+          loading: () => const _MostViewedRecipesLoading(),
+          error: (error, _) =>
+              _MostViewedRecipesError(error: error, onRetry: onRetry),
+          data: (recipes) {
+            if (recipes.isEmpty) {
+              return const _NoMostViewedRecipes();
+            }
+
+            return Column(
+              children: recipes
+                  .map(
+                    (recipe) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _MostViewedRecipeCard(
+                        recipe: recipe,
+                        isFavorite: favoriteRecipes.containsKey(recipe.id),
+                        onFavoritePressed: () => onFavoritePressed(recipe),
+                        onTap: () => onRecipeTap(recipe),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _MostViewedRecipeCard extends StatelessWidget {
+  const _MostViewedRecipeCard({
+    required this.recipe,
+    required this.isFavorite,
+    required this.onFavoritePressed,
+    required this.onTap,
+  });
+
+  final RecipeCollectionItem recipe;
+  final bool isFavorite;
+  final VoidCallback onFavoritePressed;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = recipe.title.isEmpty ? 'Generated recipe' : recipe.title;
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.white,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: Colors.grey.shade200),
           ),
           child: Row(
             children: [
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(16),
-                  image: const DecorationImage(
-                    image: NetworkImage(
-                      'https://images.unsplash.com/photo-1556881286-fc6915169721?q=80&w=500&auto=format&fit=crop',
-                    ),
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
+              _MostViewedRecipeImage(imageUrl: recipe.imageUrl ?? ''),
               const SizedBox(width: 16),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Morning Shake with\nMango Slice and Cream',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
-                        ),
-                        Icon(Icons.bookmark_border, size: 20),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            const CircleAvatar(
-                              radius: 10,
-                              backgroundColor: Colors.grey,
-                              child: Icon(Icons.person, size: 12),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Riya Ghosh',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade600,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 86),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                                height: 1.28,
+                                color: Color(0xFF2C3236),
                               ),
                             ),
-                          ],
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
                           ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFD166),
-                            borderRadius: BorderRadius.circular(12),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            tooltip: isFavorite ? 'Saved' : 'Save',
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints.tightFor(
+                              width: 32,
+                              height: 32,
+                            ),
+                            onPressed: onFavoritePressed,
+                            icon: Icon(
+                              isFavorite
+                                  ? Icons.bookmark
+                                  : Icons.bookmark_border,
+                              size: 22,
+                              color: const Color(0xFF2C3236),
+                            ),
                           ),
-                          child: const Row(
-                            children: [
-                              Icon(Icons.star, size: 12),
-                              SizedBox(width: 4),
-                              Text(
-                                '4.9',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          const SizedBox(width: 8),
+                          _RecipeViewsBadge(viewCount: recipe.viewCount),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _MostViewedRecipesLoading extends StatelessWidget {
+  const _MostViewedRecipesLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Loading most viewed recipes...'),
+          SizedBox(height: 14),
+          LinearProgressIndicator(),
+        ],
+      ),
+    );
+  }
+}
+
+class _MostViewedRecipesError extends StatelessWidget {
+  const _MostViewedRecipesError({required this.error, required this.onRetry});
+
+  final Object error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Could not load most viewed recipes',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(error.toString()),
+          const SizedBox(height: 14),
+          AppButton.secondary(
+            label: 'Retry',
+            icon: Icons.refresh_rounded,
+            onPressed: onRetry,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NoMostViewedRecipes extends StatelessWidget {
+  const _NoMostViewedRecipes();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.visibility_outlined),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text('Open generated recipes to start ranking them here.'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MostViewedRecipeImage extends StatelessWidget {
+  const _MostViewedRecipeImage({required this.imageUrl});
+
+  final String imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = imageUrl.trim();
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: SizedBox(
+        width: 86,
+        height: 86,
+        child: url.isEmpty
+            ? const ColoredBox(
+                color: Color(0xFFEFEFEF),
+                child: Icon(Icons.restaurant_menu_rounded),
+              )
+            : Image.network(
+                url,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) {
+                  return const ColoredBox(
+                    color: Color(0xFFEFEFEF),
+                    child: Icon(Icons.restaurant_menu_rounded),
+                  );
+                },
+              ),
+      ),
+    );
+  }
+}
+
+class _RecipeAuthor extends StatelessWidget {
+  const _RecipeAuthor({required this.author});
+
+  final String author;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const CircleAvatar(
+          radius: 11,
+          backgroundColor: Color(0xFFD1D8CC),
+          child: Icon(Icons.person, size: 13, color: Color(0xFF596150)),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            author,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+        ),
       ],
+    );
+  }
+}
+
+class _RecipeViewsBadge extends StatelessWidget {
+  const _RecipeViewsBadge({required this.viewCount});
+
+  final int viewCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = viewCount == 1 ? '1 view' : '$viewCount views';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFD166),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.visibility_rounded, size: 13),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -987,6 +1235,15 @@ Widget _buildIngredientItem(
       ],
     ),
   );
+}
+
+Future<void> _recordRecipeView(WidgetRef ref, String recipeId) async {
+  try {
+    await ref.read(recipeRepositoryProvider).recordRecipeView(recipeId);
+    ref.invalidate(mostViewedRecipesProvider);
+  } catch (_) {
+    // View analytics should not interrupt opening a recipe.
+  }
 }
 
 void _showSuggestedRecipe(

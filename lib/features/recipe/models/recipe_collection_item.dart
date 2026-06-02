@@ -14,6 +14,7 @@ class RecipeCollectionItem {
     required this.missingIngredients,
     required this.imageUrl,
     required this.generatedAt,
+    required this.viewCount,
   }) : _availableIngredients = availableIngredients;
 
   factory RecipeCollectionItem.fromSuggested(SuggestedRecipe recipe) {
@@ -36,6 +37,7 @@ class RecipeCollectionItem {
       missingIngredients: recipe.missingIngredients,
       imageUrl: recipe.imageUrl,
       generatedAt: null,
+      viewCount: recipe.viewCount,
     );
   }
 
@@ -61,6 +63,7 @@ class RecipeCollectionItem {
       missingIngredients: recipe.missingIngredients,
       imageUrl: recipe.imageUrl,
       generatedAt: scan.createdDate,
+      viewCount: recipe.viewCount,
     );
   }
 
@@ -77,6 +80,7 @@ class RecipeCollectionItem {
       missingIngredients: _stringList(json['missingIngredients']),
       imageUrl: (json['imageUrl'] ?? json['image_url']) as String?,
       generatedAt: DateTime.tryParse(json['generatedAt'] as String? ?? ''),
+      viewCount: _intValue(json['viewCount'] ?? json['view_count']),
     );
   }
 
@@ -91,6 +95,7 @@ class RecipeCollectionItem {
   final List<String> missingIngredients;
   final String? imageUrl;
   final DateTime? generatedAt;
+  final int viewCount;
 
   List<HistoryIngredient> get availableIngredients {
     return _availableIngredients ?? const [];
@@ -124,6 +129,7 @@ class RecipeCollectionItem {
       'missingIngredients': missingIngredients,
       'imageUrl': imageUrl,
       'generatedAt': generatedAt?.toIso8601String(),
+      'viewCount': viewCount,
     };
   }
 }
@@ -169,4 +175,12 @@ List<HistoryIngredient> _ingredientList(Object? value) {
   }
 
   return const [];
+}
+
+int _intValue(Object? value) {
+  if (value is num) {
+    return value.toInt();
+  }
+
+  return 0;
 }

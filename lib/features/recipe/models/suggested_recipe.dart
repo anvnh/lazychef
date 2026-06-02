@@ -9,6 +9,7 @@ class SuggestedRecipe {
     required this.difficulty,
     required this.missingIngredients,
     required this.imageUrl,
+    required this.viewCount,
   });
 
   factory SuggestedRecipe.fromJson(Map<String, dynamic> json) {
@@ -22,6 +23,7 @@ class SuggestedRecipe {
       difficulty: json['difficulty'] as String? ?? 'easy',
       missingIngredients: _stringList(json['missingIngredients']),
       imageUrl: (json['imageUrl'] ?? json['image_url']) as String?,
+      viewCount: _intValue(json['viewCount'] ?? json['view_count']),
     );
   }
 
@@ -34,6 +36,7 @@ class SuggestedRecipe {
   final String difficulty;
   final List<String> missingIngredients;
   final String? imageUrl;
+  final int viewCount;
 
   String get difficultyLabel {
     if (difficulty.isEmpty) {
@@ -96,4 +99,12 @@ List<String> _stringList(Object? value) {
   }
 
   return const [];
+}
+
+int _intValue(Object? value) {
+  if (value is num) {
+    return value.toInt();
+  }
+
+  return 0;
 }

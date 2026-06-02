@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, gt, sql } from "drizzle-orm";
 import { readOptionalEnv, readRequiredEnv } from "../config/env.js";
 import { getDb } from "../db/client.js";
 import {
@@ -52,6 +52,7 @@ export type RecipeSuggestionResult = GeneratedRecipe & {
   id: string;
   scanId: string;
   imageUrl: string | null;
+  viewCount: number;
 };
 
 export type RecipeIngredientResult = {
@@ -154,6 +155,7 @@ async function generateAndPersistRecipeSuggestions(
     difficulty: recipe.difficulty,
     missingIngredients: JSON.stringify(recipe.missingIngredients),
     imageUrl: null,
+    viewCount: 0,
   }));
 
   await db.insert(recipeSuggestions).values(recipesToInsert);
@@ -210,6 +212,7 @@ export async function listFavoriteRecipes(
       difficulty: recipeSuggestions.difficulty,
       missingIngredients: recipeSuggestions.missingIngredients,
       imageUrl: recipeSuggestions.imageUrl,
+      viewCount: recipeSuggestions.viewCount,
     })
     .from(favoriteRecipes)
     .innerJoin(
@@ -248,6 +251,57 @@ export async function addFavoriteRecipe(input: {
     });
 
   return recipe;
+}
+
+export async function recordRecipeView(input: {
+  userId: string;
+  recipeSuggestionId: string;
+}): Promise<RecipeSuggestionResult | null> {
+  const recipe = await getUserRecipeSuggestion(
+    input.userId,
+    input.recipeSuggestionId,
+  );
+
+  if (!recipe) {
+    return null;
+  }
+
+  await getDb()
+    .update(recipeSuggestions)
+    .set({
+      viewCount: sql`${recipeSuggestions.viewCount} + 1`,
+    })
+    .where(eq(recipeSuggestions.id, input.recipeSuggestionId));
+
+  return {
+    ...recipe,
+    viewCount: recipe.viewCount + 1,
+  };
+}
+
+export async function listMostViewedRecipes(
+  userId: string,
+): Promise<RecipeSuggestionResult[]> {
+  const rows = await getDb()
+    .select({
+      id: recipeSuggestions.id,
+      scanId: recipeSuggestions.scanId,
+      title: recipeSuggestions.title,
+      description: recipeSuggestions.description,
+      instructions: recipeSuggestions.instructions,
+      cookingTime: recipeSuggestions.cookingTime,
+      difficulty: recipeSuggestions.difficulty,
+      missingIngredients: recipeSuggestions.missingIngredients,
+      imageUrl: recipeSuggestions.imageUrl,
+      viewCount: recipeSuggestions.viewCount,
+    })
+    .from(recipeSuggestions)
+    .innerJoin(scans, eq(recipeSuggestions.scanId, scans.id))
+    .where(and(eq(scans.userId, userId), gt(recipeSuggestions.viewCount, 0)))
+    .orderBy(desc(recipeSuggestions.viewCount), desc(recipeSuggestions.id))
+    .limit(10);
+
+  return rows.map(toRecipeSuggestionResult);
 }
 
 export async function removeFavoriteRecipe(input: {
@@ -290,6 +344,7 @@ async function getUserRecipeSuggestion(
       difficulty: recipeSuggestions.difficulty,
       missingIngredients: recipeSuggestions.missingIngredients,
       imageUrl: recipeSuggestions.imageUrl,
+      viewCount: recipeSuggestions.viewCount,
     })
     .from(recipeSuggestions)
     .innerJoin(scans, eq(recipeSuggestions.scanId, scans.id))
@@ -448,6 +503,7 @@ function toRecipeSuggestionResult(
     difficulty: normalizeDifficulty(recipe.difficulty),
     missingIngredients: parseMissingIngredients(recipe.missingIngredients),
     imageUrl: recipe.imageUrl,
+    viewCount: Number(recipe.viewCount ?? 0),
   };
 }
 

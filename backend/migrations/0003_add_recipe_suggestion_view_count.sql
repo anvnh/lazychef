@@ -1,0 +1,2 @@
+ALTER TABLE recipe_suggestions
+ADD COLUMN view_count INTEGER NOT NULL DEFAULT 0;

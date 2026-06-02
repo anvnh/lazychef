@@ -97,6 +97,7 @@ class HistoryRecipeSuggestion {
     required this.difficulty,
     required this.missingIngredients,
     required this.imageUrl,
+    required this.viewCount,
   });
 
   factory HistoryRecipeSuggestion.fromJson(Map<String, dynamic> json) {
@@ -109,6 +110,7 @@ class HistoryRecipeSuggestion {
       difficulty: json['difficulty'] as String? ?? 'easy',
       missingIngredients: _stringList(json['missingIngredients']),
       imageUrl: (json['imageUrl'] ?? json['image_url']) as String?,
+      viewCount: _intValue(json['viewCount'] ?? json['view_count']),
     );
   }
 
@@ -120,6 +122,7 @@ class HistoryRecipeSuggestion {
   final String difficulty;
   final List<String> missingIngredients;
   final String? imageUrl;
+  final int viewCount;
 }
 
 List<Map<String, dynamic>> _jsonList(Object? value) {
@@ -139,4 +142,12 @@ List<String> _stringList(Object? value) {
   }
 
   return const [];
+}
+
+int _intValue(Object? value) {
+  if (value is num) {
+    return value.toInt();
+  }
+
+  return 0;
 }

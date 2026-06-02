@@ -21,6 +21,7 @@ export type RecipeSuggestion = {
   difficulty: "easy" | "medium" | "hard";
   missingIngredients: string[];
   imageUrl: string | null;
+  viewCount: number;
 };
 
 export type ScanHistoryItem = Required<SavedScan> & {
@@ -123,6 +124,7 @@ export async function listUserScanHistory(
           : "easy",
       missingIngredients: parseMissingIngredients(recipe.missingIngredients),
       imageUrl: recipe.imageUrl,
+      viewCount: Number(recipe.viewCount ?? 0),
     });
     recipesByScanId.set(recipe.scanId, scanRecipes);
   }

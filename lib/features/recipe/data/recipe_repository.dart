@@ -90,6 +90,51 @@ class RecipeRepository {
     }
   }
 
+  Future<List<RecipeCollectionItem>> fetchMostViewedRecipes() async {
+    try {
+      final response = await _dio.get<dynamic>('/recipes/most-viewed');
+      final data = response.data;
+      final recipes = data is Map ? data['recipes'] : data;
+
+      if (recipes is List) {
+        return recipes
+            .whereType<Map>()
+            .map((recipe) => Map<String, dynamic>.from(recipe))
+            .map(RecipeCollectionItem.fromJson)
+            .toList();
+      }
+
+      return const [];
+    } on DioException catch (error) {
+      throw RecipeSuggestionException(_parseDioError(error));
+    } catch (_) {
+      throw const RecipeSuggestionException(
+        'Could not load most viewed recipes.',
+      );
+    }
+  }
+
+  Future<RecipeCollectionItem?> recordRecipeView(String recipeId) async {
+    if (recipeId.isEmpty) {
+      return null;
+    }
+
+    try {
+      final response = await _dio.post<dynamic>('/recipes/$recipeId/views');
+      final data = response.data;
+
+      if (data is Map && data['recipe'] is Map) {
+        return RecipeCollectionItem.fromJson(
+          Map<String, dynamic>.from(data['recipe'] as Map),
+        );
+      }
+
+      return null;
+    } on DioException catch (error) {
+      throw RecipeSuggestionException(_parseDioError(error));
+    }
+  }
+
   Future<RecipeCollectionItem> addFavoriteRecipe(String recipeId) async {
     try {
       final response = await _dio.post<dynamic>('/recipes/favorites/$recipeId');

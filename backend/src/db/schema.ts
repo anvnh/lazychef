@@ -1,5 +1,11 @@
 import { sql } from "drizzle-orm";
-import { real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import {
+  integer,
+  real,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from "drizzle-orm/sqlite-core";
 
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
@@ -42,6 +48,7 @@ export const recipeSuggestions = sqliteTable("recipe_suggestions", {
   difficulty: text("difficulty", { enum: ["easy", "medium", "hard"] }),
   missingIngredients: text("missing_ingredients"),
   imageUrl: text("image_url"),
+  viewCount: integer("view_count").notNull().default(0),
 });
 
 export const favoriteRecipes = sqliteTable(

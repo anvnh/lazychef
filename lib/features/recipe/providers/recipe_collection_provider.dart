@@ -25,6 +25,12 @@ final generatedRecipesProvider =
       return recipesById.values.toList();
     }, retry: (_, _) => null);
 
+final mostViewedRecipesProvider =
+    FutureProvider.autoDispose<List<RecipeCollectionItem>>((ref) async {
+      final repository = ref.watch(recipeRepositoryProvider);
+      return repository.fetchMostViewedRecipes();
+    }, retry: (_, _) => null);
+
 final favoriteRecipesProvider =
     AsyncNotifierProvider<
       FavoriteRecipesController,
